@@ -20,6 +20,9 @@ Shared UI in @/components/prototype/controls exports:
 - TextField({label,value,onChange,placeholder?,multiline?})
 - Modal({title,onClose,children}) accessible dialog
 - SaveStatus() persistent status and retry/conflict support
+- NumberField compact: input only (aria-labelled) for dense rows such as sets
+- Segmented({options,value,onChange,label}) tabs and unit toggles
+- ViewHeader({q?,label,action?,children}) back-to-body, Q key and title; children hold DayNav and SaveStatus (quiet unless error/offline/conflict)
 CSS: @/components/prototype/prototype.module.css root will provide class names page,header,toolbar,title,subtle,card,stack,row,field,input,select,button,primary,danger,small,grid,empty,tabs,active,badge,summary,table,error,sectionTitle,divider. Agents may create own CSS files for domain-specific layout; don't edit shared CSS.
 
 Backend API:

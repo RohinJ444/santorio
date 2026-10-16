@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SyncEngine, type Transport } from './sync-engine';
-import type { BootstrapResponse, StoredRecord } from './domain/types';
+import type { BootstrapResponse, Location, StoredRecord } from './domain/types';
 
 type Persisted = Parameters<ConstructorParameters<typeof SyncEngine>[0]>[0];
 type Job = Parameters<Transport>[0];
@@ -21,6 +21,8 @@ function engine(persist: (value: Persisted) => void, transport: Transport) {
   engines.push(value);
   return value;
 }
+/** The version the next edit will be based on: what the engine believes the server holds. */
+function nextVersion(value: SyncEngine, disk: () => Persisted) { value.upsert('locations', location('Probe')); return disk().queue.at(-1)!.expectedVersion; }
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => { for (const value of engines.splice(0)) value.stop(); vi.useRealTimers(); });
 
@@ -63,7 +65,7 @@ describe('durable inline autosave', () => {
     expect(transport.mock.calls[1][0].data).toEqual(location('Newest draft'));
     expect(current.getSnapshot().records.locations[id].name).toBe('Newest draft');
     expect(current.getSnapshot().pendingCount).toBe(0);
-    expect(disk.server[0].version).toBe(2);
+    expect(nextVersion(current, () => disk)).toBe(2);
   });
 
   it('recovers an unattempted draft after reload, without needing its debounce timer to fire', async () => {
@@ -103,7 +105,7 @@ describe('durable inline autosave', () => {
     await vi.waitFor(() => expect(reloaded.getSnapshot().pendingCount).toBe(0));
     expect(replay.mock.calls[0][0].mutationId).toBe(mutationId);
     expect(seen.size).toBe(1);
-    expect(disk.server[0].version).toBe(1);
+    expect(nextVersion(reloaded, () => disk)).toBe(1);
   });
 
   it('resolves a conflict using the newest local edit, not the stale first attempt', async () => {
@@ -149,7 +151,7 @@ describe('durable inline autosave', () => {
     expect(current.getSnapshot().records.locations[id].name).toBe('Acknowledged edit');
     current.bootstrap(bootstrap([stale]));
     expect(current.getSnapshot().records.locations[id].name).toBe('Acknowledged edit');
-    expect(disk.server[0].version).toBe(2);
+    expect(nextVersion(current, () => disk)).toBe(2);
   });
 
   it('does not roll back newer server state when a recovered mutation returns its older cached acknowledgement', async () => {
@@ -166,8 +168,8 @@ describe('durable inline autosave', () => {
     await vi.waitFor(() => expect(current.getSnapshot().pendingCount).toBe(0));
     expect(transport).toHaveBeenCalledOnce();
     expect(current.getSnapshot().records.locations[id].name).toBe('Newer edit from another tab');
-    expect(disk.server[0].version).toBe(2);
     expect(current.getSnapshot().status).toBe('saved');
+    expect(nextVersion(current, () => disk)).toBe(2);
   });
 
   it('keeps a visible local-storage failure instead of reporting Saved during bootstrap', () => {
@@ -191,4 +193,71 @@ it('lets a corrected inline draft replace a validation failure without getting t
   expect(current.getSnapshot().status).toBe('saved');expect(disk.queue).toHaveLength(0);
   expect(transport.mock.calls[1][0].expectedVersion).toBe(0);
   expect(current.getSnapshot().records.locations[id].name).toBe('Corrected gym');
+});
+
+describe('state that must never stall the queue', () => {
+  const other = '1f0c7f3e-5d5a-4c1e-9a3b-2b8f0f6d9e11';
+
+  it('drops a draft deleted before it ever reached the server, without a request', async () => {
+    let disk!: Persisted;
+    const transport = vi.fn<Transport>(async job => success(job));
+    const current = engine(value => { disk = structuredClone(value); }, transport);
+    current.bootstrap(bootstrap());
+    current.upsert('locations', location('Added offline'));
+    current.remove('locations', id);
+    expect(disk.queue).toHaveLength(0);
+    expect(current.getSnapshot().records.locations[id]).toBeUndefined();
+    expect(current.getSnapshot().status).toBe('saved');
+    await vi.advanceTimersByTimeAsync(400);
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it('still deletes a record whose create is already in flight', async () => {
+    const first = deferred<Awaited<ReturnType<Transport>>>();
+    const transport = vi.fn<Transport>().mockImplementationOnce(() => first.promise).mockImplementation(async job => success(job));
+    const current = engine(() => {}, transport);
+    current.bootstrap(bootstrap());
+    current.upsert('locations', location('Gym'));
+    const flushing = current.flush();
+    current.remove('locations', id);
+    first.resolve(success(transport.mock.calls[0][0]));
+    await flushing;
+    expect(transport.mock.calls[1][0]).toMatchObject({ data: null, expectedVersion: 1 });
+    expect(current.getSnapshot().pendingCount).toBe(0);
+  });
+
+  it('treats a 404 delete left in an older journal as done and keeps syncing later edits', async () => {
+    const transport = vi.fn<Transport>(async job => job.data === null ? { ok: false, status: 404, error: 'Record not found' } : success(job));
+    const current = engine(() => {}, transport);
+    current.hydrate({ server: [], queue: [{ collection: 'locations', id, data: null, expectedVersion: 0, mutationId: 'stuck-delete', attempted: false }] });
+    current.upsert('locations', { id: other, name: 'Later edit' });
+    current.bootstrap(bootstrap());
+    await vi.waitFor(() => expect(current.getSnapshot().pendingCount).toBe(0));
+    expect(current.getSnapshot().status).toBe('saved');
+    expect(transport.mock.calls.map(([job]) => job.id)).toEqual([id, other]);
+  });
+
+  it('keeps only unsynced drafts on the device, so storage does not grow with history', () => {
+    let disk!: Persisted;
+    const current = engine(value => { disk = structuredClone(value); }, async job => success(job));
+    current.bootstrap(bootstrap([record('Saved gym', 1)]));
+    expect(disk).toEqual({ server: [], queue: [] });
+    current.upsert('locations', { id: other, name: 'Draft' });
+    expect(disk.server).toEqual([]);
+    expect(disk.queue.map(job => job.id)).toEqual([other]);
+    expect(current.getSnapshot().records.locations[id].name).toBe('Saved gym');
+  });
+
+  it('reapplies the newest draft onto a newer server copy when the rebase knows the other writer', async () => {
+    const remote = record('Renamed elsewhere', 4);
+    const transport = vi.fn<Transport>().mockResolvedValueOnce({ ok: false, status: 409, current: remote }).mockImplementation(async job => success(job));
+    const current = new SyncEngine(() => {}, transport, (_collection, draft, server) => ({ ...(server as Location), notes: (draft as Location).notes }));
+    engines.push(current);
+    current.bootstrap(bootstrap([record('Original', 1)]));
+    current.upsert('locations', { id, name: 'Original', notes: 'Bring chalk' });
+    await current.flush();
+    await vi.waitFor(() => expect(current.getSnapshot().pendingCount).toBe(0));
+    expect(current.getSnapshot().status).toBe('saved');
+    expect(transport.mock.calls[1][0]).toMatchObject({ expectedVersion: 4, data: { id, name: 'Renamed elsewhere', notes: 'Bring chalk' } });
+  });
 });

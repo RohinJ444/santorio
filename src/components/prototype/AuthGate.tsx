@@ -73,6 +73,7 @@ export default function AuthGate({ children }: { children: (user: { id: string; 
   const setup = status?.setupRequired && !confirmationSent;
   const booting = recoveryRedirect || (loading && !status) || Boolean(status?.user && next);
 
+  if (booting) return <div className={a.splash} role="status" aria-label="Opening your journal">Santorio</div>;
   return <div className={a.viewport}><main className={`${s.auth} ${s.card} ${s.stack} ${a.card}`}>
     <div className={s.subtle}>SANTORIO</div>
     <h1 className={s.title}>{booting ? 'Opening your journal…' : forgot ? 'Reset your password' : setup ? 'Your private journal' : 'Welcome back'}</h1>

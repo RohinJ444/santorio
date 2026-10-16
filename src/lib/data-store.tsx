@@ -1,6 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { defaultProfile, type BootstrapResponse, type Collection, type Collections } from './domain/types';
+import { defaultProfile, type BootstrapResponse, type Collection, type Collections, type DayMetrics } from './domain/types';
+import { rebaseOnImport } from './domain/metrics';
 import { SyncEngine } from './sync-engine';
 import { mergeDrafts, parseDraft } from './draft-storage';
 
@@ -64,7 +65,7 @@ export function DataProvider({user,onSignOut,children}:{user:{id:string;email:st
       current=new SyncEngine(data=>{const serialized=JSON.stringify(data);localStorage.setItem(storageKey,serialized);if(!navigator.locks)sessionStorage.setItem(fallbackKey,serialized);},async job=>{
         const r=await fetch(`/api/records/${job.collection}/${encodeURIComponent(job.id)}`,{method:job.data===null?'DELETE':'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...(job.data===null?{}:{data:job.data}),expectedVersion:job.expectedVersion,mutationId:job.mutationId})});
         const body=await r.json();if(body.issues?.length)body.error=body.issues.map((i:{path:string[];message:string})=>`${i.path.join('.')}: ${i.message}`).join('; ');return {ok:r.ok,status:r.status,...(r.ok?{record:body}:body)};
-      });
+      },(collection,draft,server)=>collection==='metrics'?rebaseOnImport(draft as DayMetrics,server as DayMetrics):null);
       current.hydrate(saved);
       try {current.bootstrap(await api<BootstrapResponse>('/api/bootstrap',{signal:abort.signal}));} catch(e){
         if(cancelled)return;
@@ -85,7 +86,7 @@ export function DataProvider({user,onSignOut,children}:{user:{id:string;email:st
     return()=>{cancelled=true;abort.abort();current?.stop();release();};
   },[user.id,storageKey]);
   if(error)return <main style={{padding:32,maxWidth:600,margin:'auto'}}><h1>Connection needed</h1><p>{error}</p><button onClick={()=>location.reload()}>Reload</button></main>;
-  if(!engine)return <main style={{padding:32}}>Opening your journal…</main>;
+  if(!engine)return <main role="status" aria-label="Opening your journal" style={{position:'fixed',inset:0,display:'grid',placeItems:'center',background:'var(--bg)',color:'var(--out)',font:'600 13px var(--font-display)',letterSpacing:'.42em',textTransform:'uppercase',textShadow:'0 0 18px rgba(63,224,255,.6)'}}>Santorio</main>;
   return <Connected engine={engine} storageKey={storageKey} user={user} onSignOut={onSignOut}>{children}</Connected>;
 }
 export function useData(){const data=useContext(Context);if(!data)throw new Error('useData requires DataProvider');return data;}

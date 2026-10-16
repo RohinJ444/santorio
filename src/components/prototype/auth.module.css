@@ -6,3 +6,7 @@
 .scopeList li + li { margin-top: 8px; }
 .identity { overflow-wrap: anywhere; }
 .hiddenUsername { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); }
+
+/* while connecting: just the name, breathing, on the app background */
+.splash { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: var(--bg); color: var(--out); font: 600 13px var(--font-display); letter-spacing: 0.42em; text-transform: uppercase; text-shadow: 0 0 18px rgba(63, 224, 255, 0.6); animation: breathe 1.6s ease-in-out infinite alternate; }
+@keyframes breathe { from { opacity: 0.35; } to { opacity: 1; } }

@@ -13,6 +13,7 @@ import { DataProvider, useData } from "@/lib/data-store";
 import AuthGate from "./prototype/AuthGate";
 import ConsentScreen from "./prototype/ConsentScreen";
 import ResetPasswordScreen from "./prototype/ResetPasswordScreen";
+import Onboarding from "./prototype/Onboarding";
 import Greeting from "./home/Greeting";
 import HomeOverlay from "./home/HomeOverlay";
 import { routeOf } from "./routes";
@@ -36,24 +37,28 @@ function VisualShell() {
     () => true,
     () => false,
   );
-  // The entrance plays only when the app opens on the body.
-  const [intro] = useState(() => route === "home");
+  // The entrance plays only when the app opens on the body (or comes to it from onboarding).
+  const [intro] = useState(() => route === "home" || !profile.onboardingComplete);
+  // Development only: /?onboarding=preview replays first run on an existing profile.
+  const [preview, setPreview] = useState(() => process.env.NODE_ENV === "development" && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("onboarding") === "preview");
 
   if (!mounted) return <div className={s.app} />;
 
-  if (!profile.onboardingComplete) return <SettingsView onboarding />;
+  const onboarding = !profile.onboardingComplete || preview;
+  const stage = onboarding ? "onboarding" : route;
 
   return (
       <div className={s.app}>
-        <AnimatePresence>{route === "home" && <Greeting key="greeting" intro={intro} />}</AnimatePresence>
-        <div className={s.stage} data-route={route}>
-          <Stage route={route} intro={intro} />
+        <AnimatePresence>{stage === "home" && <Greeting key="greeting" intro={intro} />}</AnimatePresence>
+        <div className={s.stage} data-route={stage}>
+          <Stage route={stage} intro={intro} />
         </div>
         <AnimatePresence>
-          {route === "home" && <HomeOverlay key="home" intro={intro} />}
-          {route === "workout" && <WorkoutView key="workout" />}
-          {route === "diet" && <DietView key="diet" />}
-          {route === "settings" && <SettingsView key="settings" />}
+          {onboarding && <Onboarding key="onboarding" onDone={() => setPreview(false)} />}
+          {stage === "home" && <HomeOverlay key="home" intro={intro} />}
+          {stage === "workout" && <WorkoutView key="workout" />}
+          {stage === "diet" && <DietView key="diet" />}
+          {stage === "settings" && <SettingsView key="settings" />}
         </AnimatePresence>
       </div>
   );

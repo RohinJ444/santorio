@@ -1,7 +1,6 @@
 'use client';
 
 import { memo, useId, useState } from 'react';
-import Link from 'next/link';
 import { useData } from '@/lib/data-store';
 import type { HealthWorkout, WorkoutSession } from '@/lib/domain/types';
 import { displayNumber } from '@/lib/domain/workouts';
@@ -90,7 +89,7 @@ export default function HealthWorkoutLinks({ date }: { date: string }) {
   const daySessions = sessions.filter(session => session.date === date).sort((a, b) => a.startedAt.localeCompare(b.startedAt));
   const workouts = Object.values(records.healthWorkouts).filter(workout => workout.date === date).sort((a, b) => a.start.localeCompare(b.start));
   const unmatched = workouts.filter(workout => !existingLinks(workout.id, sessions).length).length;
-  if (!workouts.length) return <p className={h.emptyWatch}>No Watch workouts imported for this day. <Link href="/settings">Connect Health Auto Export</Link></p>;
+  if (!workouts.length) return null;
   return <details className={h.watchPanel} open={!daySessions.length}>
     <summary><span>Apple Watch <span className={h.panelCount}>{workouts.length} {workouts.length === 1 ? 'session' : 'sessions'} · {unmatched} unlinked</span></span></summary>
     <p className={h.linkHint}>Connect an indoor walk to treadmill logging, or a strength session to the whole workout. Each Watch session can be linked once; unlink it first to move it.</p>

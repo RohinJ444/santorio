@@ -5,6 +5,8 @@ import { api, useData } from '@/lib/data-store';
 import s from './prototype.module.css';
 import n from './nutrition.module.css';
 import h from './health.module.css';
+import st from './settings.module.css';
+import { Row } from './ProfileParts';
 
 type ImportResult = {
   ok: true; created: number; updated: number; unchanged: number;
@@ -84,46 +86,36 @@ export default function HealthConnection() {
     finally { setBusy(null); }
   };
   const localEndpoint = connection?.endpoint ? /^http:\/\/(localhost|127\.0\.0\.1)(:|\/)/.test(connection.endpoint) : false;
-  return <section className={s.card} aria-labelledby="health-connection-heading">
-    <h2 className={s.sectionTitle} id="health-connection-heading">Apple Health</h2>
-    <p className={n.help}>Bring in activity and Watch workouts through Health Auto Export. Active calories and resting energy stay separate; workout calories are already included in daily active energy.</p>
-    {loading ? <p className={s.subtle}>Loading connection…</p> : <p className={s.subtle}>{connection?.connected ? 'Import token enabled.' : 'Automatic uploads are not connected.'}{connection?.lastImportedAt ? ` Last received ${formatDate(connection.lastImportedAt)}.` : ' No upload received yet.'}</p>}
-    <div className={s.stack}>
-      {connection ? <>
-        <div className={s.row}><button type="button" className={s.button} disabled={!!busy} onClick={() => void createToken()}>{busy === 'token' ? 'Creating…' : connection.connected ? 'Replace import token' : 'Create import token'}</button>{connection.connected ? <button type="button" className={`${s.button} ${s.danger}`} disabled={!!busy} onClick={() => void revoke()}>{busy === 'revoke' ? 'Revoking…' : 'Revoke token'}</button> : null}</div>
-        <label className={s.field}>REST API URL<input className={s.input} readOnly value={connection.endpoint} onFocus={event => event.currentTarget.select()} /></label>
-        <button type="button" className={s.button} onClick={() => void copy(connection.endpoint, 'Endpoint')}>Copy URL</button>
-        {localEndpoint ? <p className={n.help}>This is the local development URL. For uploads from your phone, open the deployed Santorio settings and copy its HTTPS URL after this integration is deployed.</p> : null}
-        {token ? <div className={h.tokenBox}>
-          <strong>Copy this token into both automations</strong>
-          <p className={n.help}>It is shown only here, until you leave this screen. You can replace it later.</p>
-          <label className={s.field}>Authorization header value<textarea className={`${s.input} ${h.token}`} readOnly rows={3} value={`Bearer ${token}`} onFocus={event => event.currentTarget.select()} spellCheck={false} /></label>
-          <div className={s.row}><button type="button" className={s.button} onClick={() => void copy(`Bearer ${token}`, 'Authorization value')}>Copy authorization value</button><button type="button" className={s.button} onClick={() => setToken('')}>Hide token</button></div>
-        </div> : null}
-      </> : !loading ? <button type="button" className={s.button} onClick={() => { setError(''); void reloadConnection().catch(reason => setError((reason as Error).message)); }}>Retry connection</button> : null}
-      <details className={h.instructions}>
-        <summary>Set up Health Auto Export</summary>
-        <p className={n.help}>Create two REST API automations in Health Auto Export, using the same URL and token above. Choose JSON, export version 2, and POST.</p>
-        <dl className={h.headers}><div><dt>Content-Type</dt><dd>application/json</dd></div><div><dt>Authorization</dt><dd>Bearer followed by your import token</dd></div></dl>
-        <ol className={h.steps}>
-          <li><strong>Daily activity</strong><p>Select Health Metrics: Active Energy, Basal Energy Burned, Apple Exercise Time, and Step Count. Turn on Summarize Data, with time grouping Days. Set Date Range to Default (yesterday and today), so late updates replace earlier totals. Do not use Since Last Sync for daily totals.</p><p>Add header <code>Automation-Aggregation</code> with value <code>days</code>.</p></li>
-          <li><strong>Watch workouts</strong><p>Select Workouts. Include Workout Metrics with time grouping Minutes. Keep routes off. Set Date Range to Default (yesterday and today). This automation does not need the aggregation header.</p></li>
-        </ol>
-        <p className={n.help}>Run each automation manually once and check the import result here before enabling its schedule. Background exports can arrive late. An imported day is not assumed complete just because its date has passed.</p>
-        <p className={n.help}><a href="https://help.healthyapps.dev/en/health-auto-export/automations/rest-api/" target="_blank" rel="noreferrer">Health Auto Export REST API guide ↗</a></p>
-      </details>
-      <details className={h.instructions}>
-        <summary>Import a JSON file now</summary>
-        <p className={n.help}>Choose a JSON version 2 export. Daily health metrics must use Summarize Data with Days grouping; workout metrics can use Minutes. Re-importing replaces matching records instead of adding their values together.</p>
-        <label className={s.field}>Health Auto Export JSON<input ref={fileInput} className={s.input} type="file" accept=".json,application/json" disabled={!!busy} onChange={event => { setFile(event.target.files?.[0] ?? null); setError(''); setResult(null); }} /></label>
-        {file ? <p className={n.mutedNotice}>{file.name} · {(file.size / 1024).toFixed(0)} KB</p> : null}
-        <button type="button" className={s.button} disabled={!file || !!busy || pendingCount > 0} onClick={() => void upload()}>{busy === 'upload' ? 'Importing…' : 'Import file'}</button>
-        {pendingCount ? <p className={n.mutedNotice}>Waiting for your journal changes to sync before importing.</p> : null}
-      </details>
-      {result ? <ImportSummary result={result} /> : connection?.lastResult ? <details className={h.instructions}><summary>Last import result</summary><ImportSummary result={connection.lastResult} /></details> : null}
-      {notice ? <p className={n.mutedNotice} role="status">{notice}</p> : null}
-      {error ? <p className={s.error} role="alert">{error}</p> : null}
-      <p className={n.mutedNotice}>Birthday, equation coefficient, goals, and preferences remain manual. Missing Health values stay unknown.</p>
-    </div>
-  </section>;
+  return <><h2 className={st.groupTitle} id="health-connection-heading">Apple Health</h2><section className={st.group} aria-labelledby="health-connection-heading">
+    <Row label={loading ? 'Loading…' : connection?.connected ? 'Connected' : 'Not connected'} hint={connection?.lastImportedAt ? `Last received ${formatDate(connection.lastImportedAt)}` : 'No upload received yet'}>
+      {connection ? <><button type="button" className={`${st.pill} ${st.ghost}`} disabled={!!busy} onClick={() => void createToken()}>{busy === 'token' ? 'Creating…' : connection.connected ? 'New token' : 'Create token'}</button>{connection.connected ? <button type="button" className={`${st.pill} ${st.ghost}`} style={{ color: '#ff9d94' }} disabled={!!busy} onClick={() => void revoke()}>{busy === 'revoke' ? 'Revoking…' : 'Revoke'}</button> : null}</> : !loading ? <button type="button" className={`${st.pill} ${st.ghost}`} onClick={() => { setError(''); void reloadConnection().catch(reason => setError((reason as Error).message)); }}>Retry</button> : null}
+    </Row>
+    {connection ? <Row label="Upload URL" hint={localEndpoint ? 'Local URL. Use the deployed app’s URL on your phone.' : undefined}><button type="button" className={`${st.pill} ${st.ghost}`} onClick={() => void copy(connection.endpoint, 'Upload URL')} title={connection.endpoint}>Copy</button></Row> : null}
+    {token ? <div className={h.tokenBox}>
+      <strong>Paste this into both automations</strong>
+      <p className={st.note}>Shown only until you leave this screen. As the Authorization header value:</p>
+      <textarea className={`${s.input} ${h.token}`} readOnly rows={2} value={`Bearer ${token}`} onFocus={event => event.currentTarget.select()} spellCheck={false} aria-label="Authorization header value" />
+      <div className={s.row}><button type="button" className={st.pill} onClick={() => void copy(`Bearer ${token}`, 'Authorization value')}>Copy</button><button type="button" className={`${st.pill} ${st.ghost}`} onClick={() => setToken('')}>Hide</button></div>
+    </div> : null}
+    <details className={h.instructions}>
+      <summary>Set up Health Auto Export</summary>
+      <p className={st.note}>Two REST API automations, same URL and token: JSON, export version 2, POST, headers <code>Content-Type: application/json</code> and <code>Authorization: Bearer …</code>.</p>
+      <ol className={h.steps}>
+        <li><strong>Daily activity</strong><p>Health Metrics: Active Energy, Apple Exercise Time, Step Count. Summarize Data on, Time Grouping Days, Date Range Default (yesterday and today). The exporter adds the day-grouping header itself; don’t add one.</p></li>
+        <li><strong>Watch workouts</strong><p>Workouts, Include Workout Metrics with Time Grouping Minutes, routes off, Date Range Default.</p></li>
+      </ol>
+      <p className={st.note}>Run each once by hand and check the result here before scheduling. <a href="https://help.healthyapps.dev/en/health-auto-export/automations/rest-api/" target="_blank" rel="noreferrer">Exporter guide ↗</a></p>
+    </details>
+    <details className={h.instructions}>
+      <summary>Import a JSON file</summary>
+      <p className={st.note}>A JSON v2 export. Daily metrics need Summarize Data with Days grouping. Re-importing replaces matching records instead of adding to them.</p>
+      <input ref={fileInput} className={s.input} type="file" accept=".json,application/json" disabled={!!busy} aria-label="Health Auto Export JSON file" onChange={event => { setFile(event.target.files?.[0] ?? null); setError(''); setResult(null); }} />
+      {file ? <p className={st.note}>{file.name} · {(file.size / 1024).toFixed(0)} KB</p> : null}
+      <button type="button" className={st.pill} style={{ marginTop: 8 }} disabled={!file || !!busy || pendingCount > 0} onClick={() => void upload()}>{busy === 'upload' ? 'Importing…' : 'Import file'}</button>
+      {pendingCount ? <p className={st.note}>Waiting for your journal changes to sync first.</p> : null}
+    </details>
+    {result ? <ImportSummary result={result} /> : connection?.lastResult ? <details className={h.instructions}><summary>Last import result</summary><ImportSummary result={connection.lastResult} /></details> : null}
+    {notice ? <p className={st.note} role="status">{notice}</p> : null}
+    {error ? <p className={st.error} role="alert">{error}</p> : null}
+  </section></>;
 }

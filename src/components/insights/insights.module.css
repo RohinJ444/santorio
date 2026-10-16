@@ -115,3 +115,8 @@
   border: 1px dashed var(--line-strong);
   backdrop-filter: none;
 }
+
+.dot[data-empty="true"] {
+  border-style: dashed;
+  opacity: 0.55;
+}

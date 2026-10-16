@@ -4,7 +4,7 @@ import { useGLTF } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import type { Route } from "../routes";
+import type { StageRoute } from "../routes";
 import { anchors, emit, rig, type Part } from "./anchors";
 import { createGlowMaterial, createHologramMaterial, createOrganMaterial } from "./materials";
 import { buildBrain, buildGut } from "./organs";
@@ -55,7 +55,7 @@ function keyed(keys: readonly (readonly [number, number])[], t: number) {
 }
 const noRaycast = () => null;
 
-type Props = { route: Route; intro: boolean };
+type Props = { route: StageRoute; intro: boolean };
 
 export default function Body({ route, intro }: Props) {
   const gltf = useGLTF(MODEL);
@@ -66,6 +66,7 @@ export default function Body({ route, intro }: Props) {
   const pedestal = useRef<THREE.Group>(null!);
   const start = useRef<number | null>(null);
   const jumpAt = useRef<number | null>(null);
+  const organFade = useRef(route === "onboarding" ? 0 : 1); // organs stay hidden behind first-run onboarding
   const { camera, size, gl } = useThree();
   const proxies = useRef<THREE.Object3D[]>([]);
   const pose = useMemo(() => createPoser(gltf.scene), [gltf.scene]);
@@ -176,8 +177,9 @@ export default function Body({ route, intro }: Props) {
     mats.holo.uniforms.uReveal.value = reveal;
     mats.gut.uniforms.uTime.value = t;
     mats.brain.uniforms.uTime.value = t;
-    mats.gut.uniforms.uOpacity.value = organIn;
-    mats.brain.uniforms.uOpacity.value = organIn * 0.85;
+    organFade.current += ((route === "onboarding" ? 0 : 1) - organFade.current) * Math.min(1, dt * 1.2);
+    mats.gut.uniforms.uOpacity.value = organIn * organFade.current;
+    mats.brain.uniforms.uOpacity.value = organIn * 0.85 * organFade.current;
     mats.glow.uniforms.uOpacity.value = intro ? ease(since / 1.2) : 1;
     const gutBoost = route === "diet" ? 1.7 : 1;
     mats.gut.uniforms.uBoost.value += (gutBoost - mats.gut.uniforms.uBoost.value) * Math.min(1, dt * 3);

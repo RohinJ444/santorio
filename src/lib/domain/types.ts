@@ -93,5 +93,5 @@ export function emptyRecords(): RecordsState { return Object.fromEntries(COLLECT
 export const newId = () => crypto.randomUUID();
 export const MUSCLES = ['Chest','Back','Shoulders','Biceps','Triceps','Quads','Hamstrings','Glutes','Calves','Core','Full body','Cardio','Other'];
 export function defaultProfile(): ProfileRecord {
-  return { id: 'profile', name: '', birthday: '', sex: null, heightCm: null, heightSource: 'manual', activity: 'light', weightUnit: 'lb', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Los_Angeles', goals: { balanceTarget: 0, proteinG: 150, steps: 10000, waterL: 3 }, onboardingComplete: false };
+  return { id: 'profile', name: '', birthday: '', sex: null, heightCm: null, heightSource: 'manual', activity: 'light', weightUnit: 'lb', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Los_Angeles', goals: { balanceTarget: 150, proteinG: 150, steps: 10000, waterL: 3 }, onboardingComplete: false };
 }

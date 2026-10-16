@@ -4,16 +4,19 @@ import { useState } from 'react';
 import type { DiaryEntry, FoodRecord, MealGroup, NutrientValue, PrepBatch, RecipeIngredient, RecipeRecord } from '@/lib/domain/types';
 import { newId } from '@/lib/domain/types';
 import { AMOUNT_UNITS, NUTRIENTS, REQUIRED_NUTRIENTS, amountUnits, cloneIngredients, customizePortion, formatAmount, ingredientIssues, newFood, nutrientTotals, portionFraction, validateFood, type NutrientTotal } from '@/lib/domain/nutrition';
+import { Plus, X } from 'lucide-react';
+import { useData } from '@/lib/data-store';
 import { Modal, NumberField, TextField } from './controls';
 import s from './prototype.module.css';
 import n from './nutrition.module.css';
 
 export const MEALS: MealGroup[] = ['Breakfast','Lunch','Dinner','Snack','Supplements'];
 export function Errors({ errors }: { errors: string[] }) { return errors.length ? <ul className={n.errorList} role="alert">{errors.map((error,i) => <li key={`${i}-${error}`}>{error}</li>)}</ul> : null; }
-export function NutritionSummary({ totals }: { totals: NutrientTotal[] }) {
-  return <div className={n.macroGrid}>{REQUIRED_NUTRIENTS.map(key => {
+/** kcal · protein · carbs · fat as one quiet row of numbers. */
+export function NutritionSummary({ totals, macrosOnly, protein }: { totals: NutrientTotal[]; macrosOnly?: boolean; protein?: number }) {
+  return <div className={n.macroGrid}>{REQUIRED_NUTRIENTS.filter(key => !macrosOnly || key !== 'energy').map(key => {
     const value = totals.find(t => t.key === key);
-    return <div className={n.macro} key={key}><strong>{value?.estimated ? '≈' : ''}{formatAmount(value?.amount ?? null, key === 'energy' ? 0 : 1)}{value?.partial ? '+' : ''}</strong><small>{key === 'energy' ? 'kcal' : `${key === 'carbs' ? 'Carbs' : key[0].toUpperCase()+key.slice(1)} · g`}</small></div>;
+    return <div className={n.macro} key={key}><strong>{value?.estimated ? '≈' : ''}{formatAmount(value?.amount ?? null, 0)}{value?.partial ? '+' : ''}{key === 'protein' && protein ? <i>/{protein}</i> : null}</strong><small>{key === 'energy' ? 'kcal' : key}</small></div>;
   })}</div>;
 }
 export function NutrientBreakdown({ totals }: { totals: NutrientTotal[] }) {
@@ -21,7 +24,7 @@ export function NutrientBreakdown({ totals }: { totals: NutrientTotal[] }) {
   return <div><p className={n.help}>A dash means unknown. “Partial” totals include only ingredients with reported values. Nutrient subtypes are shown separately, never added to their parent totals.</p>{groups.map(group => <details className={n.detailGroup} key={group} open={group === 'Energy & macronutrients'}><summary>{group}</summary><table className={n.nutritionTable}><tbody>{totals.filter(t => t.group === group).map(t => <tr key={t.key}><td>{t.label}{t.partial && t.known > 0 ? <small>Partial · {t.known} of {t.total} ingredients</small> : null}</td><td>{t.estimated && t.amount !== null ? '≈ ' : ''}{formatAmount(t.amount)} {t.amount !== null ? t.unit : ''}</td></tr>)}</tbody></table></details>)}</div>;
 }
 
-export function FoodEditor({ initial, onSave, onClose }: { initial?: FoodRecord; onSave:(food:FoodRecord)=>void; onClose:()=>void }) {
+export function FoodEditor({ initial, onSave, onClose, onArchive }: { initial?: FoodRecord; onSave:(food:FoodRecord)=>void; onClose:()=>void; onArchive?:()=>void }) {
   const [food,setFood] = useState<FoodRecord>(() => initial ? structuredClone(initial) : newFood());
   const [errors,setErrors] = useState<string[]>([]);
   const [custom,setCustom] = useState({key:'',label:'',unit:'mg'});
@@ -52,22 +55,26 @@ export function FoodEditor({ initial, onSave, onClose }: { initial?: FoodRecord;
     <TextField label="Ingredient list (optional)" value={food.ingredientsText} onChange={ingredientsText=>patch({ingredientsText})} multiline/>
     <TextField label="Notes" value={food.notes} onChange={notes=>patch({notes})} multiline/>
     {initial?<p className={n.help}>Saving creates revision {initial.revision+1}. Existing recipes, batches, and diary entries keep the nutrient values they already contain.</p>:null}
-    <Errors errors={errors}/><div className={n.stickyActions}><button type="button" className={`${s.button} ${s.primary}`} onClick={save}>Save food</button><button type="button" className={s.button} onClick={onClose}>Cancel</button></div>
+    <Errors errors={errors}/><div className={n.stickyActions}><button type="button" className={`${s.button} ${s.primary}`} onClick={save}>Save food</button><button type="button" className={s.button} onClick={onClose}>Cancel</button>{onArchive?<button type="button" className={`${s.button} ${s.danger}`} style={{marginLeft:'auto'}} onClick={onArchive}>Archive</button>:null}</div>
   </div></Modal>;
 }
 
 export function FoodPicker({ foods, onSelect, onCreate, heading='Choose food' }: {foods:FoodRecord[];onSelect:(food:FoodRecord)=>void;onCreate?:()=>void;heading?:string}) {
   const [search,setSearch]=useState('');
   const matches=foods.filter(food=>!food.archived&&`${food.name} ${food.brand}`.toLowerCase().includes(search.toLowerCase()));
-  return <div className={s.stack}><TextField label={heading} value={search} onChange={setSearch} placeholder="Search your food library…"/>{onCreate?<button type="button" className={s.button} onClick={onCreate}>+ Create food</button>:null}<div>{matches.length?matches.map(food=><button type="button" className={n.listButton} key={food.id} onClick={()=>onSelect(food)}><span><strong>{food.name}</strong><small>{food.brand?`${food.brand} · `:''}{food.basis.quantity} {food.basis.unit} per serving</small></span><span className={n.entryEnergy}>+</span></button>):<p className={n.emptyLine}>{foods.length?'No matching foods.':'Your library is empty. Create a food first, or add one through your nutrition MCP.'}</p>}</div></div>;
+  return <div className={s.stack}><div className={n.searchRow}><input className={s.input} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search foods" aria-label={heading}/>{onCreate?<button type="button" className={`${s.button} ${s.primary}`} onClick={onCreate}><Plus size={15}/>New food</button>:null}</div><div className={n.meals}>{matches.length?matches.map(food=><button type="button" className={n.entry} key={food.id} onClick={()=>onSelect(food)}><span><strong>{food.name}</strong><small>{food.brand?`${food.brand} · `:''}per {food.basis.quantity} {food.basis.unit}</small></span><Plus size={16} className={n.chev}/></button>):<p className={n.emptyLine}>{foods.length?'No matching foods.':'No foods yet. Create one here.'}</p>}</div></div>;
 }
 
 export function IngredientEditor({ ingredients, foods, onChange, anchorId, onAnchorChange, allowAnchor=true }: {ingredients:RecipeIngredient[];foods:FoodRecord[];onChange:(items:RecipeIngredient[])=>void;anchorId?:string|null;onAnchorChange?:(id:string|null)=>void;allowAnchor?:boolean}) {
+  const {upsert}=useData();
   const [picker,setPicker]=useState<string|null>(null);
+  const [creating,setCreating]=useState<string|null>(null);
   const update=(id:string,patch:Partial<RecipeIngredient>)=>onChange(ingredients.map(i=>i.id===id?{...i,...patch}:i));
+  const choose=(target:string,food:FoodRecord)=>{if(target==='new')onChange([...ingredients,{id:newId(),food:structuredClone(food),quantity:1,unit:'serving'}]);else update(target,{food:structuredClone(food),quantity:1,unit:'serving'});setPicker(null);};
   return <div className={s.stack}>{ingredients.map(ingredient=><div key={ingredient.id} className={n.ingredient}><div className={n.ingredientHead}><div><strong>{ingredient.food.name}</strong><small>{ingredient.food.basis.quantity} {ingredient.food.basis.unit} basis · revision {ingredient.food.revision}</small></div><div className={s.row}><button type="button" className={`${s.button} ${n.tiny}`} onClick={()=>setPicker(ingredient.id)}>Swap</button><button type="button" className={`${s.button} ${s.danger} ${n.tiny}`} aria-label={`Remove ${ingredient.food.name}`} onClick={()=>{onChange(ingredients.filter(i=>i.id!==ingredient.id));if(anchorId===ingredient.id)onAnchorChange?.(null);}}>Remove</button></div></div><div className={n.ingredientFields}><NumberField label={`Amount of ${ingredient.food.name}`} value={ingredient.quantity} min={0.001} step={0.1} onChange={quantity=>update(ingredient.id,{quantity:quantity??0})}/><label className={s.field}>Unit<select className={s.select} value={ingredient.unit} onChange={e=>update(ingredient.id,{unit:e.target.value})}>{amountUnits(ingredient.food).map(unit=><option key={unit}>{unit}</option>)}</select></label></div>{allowAnchor&&onAnchorChange?<label className={n.check}><input type="radio" name="portion-anchor" checked={anchorId===ingredient.id} onChange={()=>onAnchorChange(ingredient.id)}/>Use this ingredient to estimate portions</label>:null}<details className={n.ingredientNote}><summary className={n.mutedNotice}>Ingredient note</summary><TextField label={`Note for ${ingredient.food.name}`} value={ingredient.note??''} onChange={note=>update(ingredient.id,{note})}/></details></div>)}
     <button type="button" className={s.button} onClick={()=>setPicker('new')}>+ Add ingredient</button>
-    {picker?<div className={s.card}><div className={s.row}><strong>{picker==='new'?'Add ingredient':'Replace ingredient'}</strong><button type="button" className={s.button} onClick={()=>setPicker(null)}>Close</button></div><FoodPicker foods={foods} onSelect={food=>{if(picker==='new')onChange([...ingredients,{id:newId(),food:structuredClone(food),quantity:1,unit:'serving'}]);else update(picker,{food:structuredClone(food),quantity:1,unit:'serving'});setPicker(null);}}/></div>:null}
+    {picker?<div className={n.picker}><div className={n.pickerHead}><span>{picker==='new'?'Add ingredient':'Swap ingredient'}</span><button type="button" className={n.more} aria-label="Close food picker" onClick={()=>setPicker(null)}><X size={15}/></button></div><FoodPicker foods={foods} onSelect={food=>choose(picker,food)} onCreate={()=>setCreating(picker)}/></div>:null}
+    {creating?<FoodEditor onSave={food=>{upsert('foods',food);choose(creating,food);setCreating(null);}} onClose={()=>setCreating(null)}/>:null}
   </div>;
 }
 

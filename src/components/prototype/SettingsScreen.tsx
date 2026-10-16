@@ -1,20 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { Archive, ArchiveRestore, Star } from 'lucide-react';
 import { api, useData } from '@/lib/data-store';
-import { bodyEstimates, latestMeasurement } from '@/lib/domain/home';
-import { normalizedTimezone, pastDateError } from '@/lib/domain/settings';
+import { normalizedTimezone } from '@/lib/domain/settings';
 import { displayNumber } from '@/lib/domain/workouts';
-import { fluidOuncesToLiters, waterOunces } from '@/lib/domain/water';
-import { newId, type DayMetrics, type Location, type ProfileRecord } from '@/lib/domain/types';
-import { DayNav, NumberField, SaveStatus, TextField } from './controls';
+import { newId, type DayMetrics, type Location } from '@/lib/domain/types';
+import { DayNav, NumberField, SaveStatus, ViewHeader } from './controls';
+import { BalanceRows, BirthdayRow, EstimateRows, GoalRows, HeightRow, Row, WeightRows, useProfilePatch } from './ProfileParts';
 import s from './prototype.module.css';
-import n from './nutrition.module.css';
+import st from './settings.module.css';
 import HealthConnection from './HealthConnection';
 
 type Connection = { id:string;client_name:string;scope:string;created_at:string;last_used_at:string|null };
-function asOf(value:string|undefined,zone:string) {if(!value)return '';return new Intl.DateTimeFormat('en-US',{timeZone:zone,dateStyle:'medium',timeStyle:'short'}).format(new Date(value));}
 
 function ConnectedApps() {
   const [connections,setConnections]=useState<Connection[]>([]);
@@ -23,62 +21,76 @@ function ConnectedApps() {
   const [busy,setBusy]=useState<string|null>(null);
   useEffect(()=>{let active=true;api<{connections:Connection[]}>('/api/oauth/connections').then(data=>{if(active){setConnections(data.connections);setState('ready');}}).catch(e=>{if(active){setError(e.message);setState('error');}});return()=>{active=false;};},[]);
   const revoke=async(id:string)=>{setBusy(id);setError('');try{await api('/api/oauth/connections',{method:'DELETE',body:JSON.stringify({id})});setConnections(prev=>prev.filter(c=>c.id!==id));}catch(e){setError((e as Error).message);}finally{setBusy(null);}};
-  return <section className={s.card}><h2 className={s.sectionTitle}>Connected AI apps</h2><p className={n.help}>Authorize an AI client to work with your food library, exercises, and workouts. You choose its permissions when connecting and can revoke access here.</p>{state==='loading'?<p className={s.subtle}>Loading connections…</p>:null}{state==='ready'&&!connections.length?<p className={s.subtle}>No connected apps yet.</p>:null}{connections.map(connection=><div className={n.listButton} key={connection.id}><div><strong>{connection.client_name}</strong><small>{connection.scope} · connected {new Date(connection.created_at).toLocaleDateString()}</small>{connection.last_used_at?<small>Last used {new Date(connection.last_used_at).toLocaleString()}</small>:null}</div><button type="button" className={`${s.button} ${s.danger}`} disabled={busy===connection.id} onClick={()=>void revoke(connection.id)}>{busy===connection.id?'Revoking…':'Revoke'}</button></div>)}{error?<p className={s.error} role="alert">{error}</p>:null}</section>;
+  return <><h2 className={st.groupTitle}>Connected AI apps</h2><section className={st.group}>{state==='loading'?<Row label="Loading connections…"/>:null}{state==='ready'&&!connections.length?<Row label="No connected apps" hint="Connect ChatGPT to your food, exercise and workout library via the MCP."/>:null}{connections.map(connection=><Row key={connection.id} label={connection.client_name} hint={`${connection.scope.replaceAll(' ',' · ')}${connection.last_used_at?` · used ${new Date(connection.last_used_at).toLocaleDateString()}`:''}`}><button type="button" className={`${st.pill} ${st.ghost}`} disabled={busy===connection.id} onClick={()=>void revoke(connection.id)}>{busy===connection.id?'Revoking…':'Revoke'}</button></Row>)}{error?<p className={st.error} role="alert">{error}</p>:null}</section></>;
 }
 
-export default function SettingsScreen({onboarding=false}:{onboarding?:boolean}) {
+export default function SettingsScreen() {
   const {profile,records,today,upsert,remove,signOut,user}=useData();
+  const patch=useProfilePatch();
   const [timezone,setTimezone]=useState(profile.timezone);
   const [timezoneError,setTimezoneError]=useState('');
-  const [birthday,setBirthday]=useState(profile.birthday);
-  const [birthdayError,setBirthdayError]=useState('');
-  const [weight,setWeight]=useState<number|null>(null);
-  const [weightDate,setWeightDate]=useState(today);
-  const [heightUnit,setHeightUnit]=useState<'cm'|'in'>(profile.weightUnit==='lb'?'in':'cm');
   const [locationName,setLocationName]=useState('');
-  const [locationNotes,setLocationNotes]=useState('');
   const [locationError,setLocationError]=useState('');
+  const [editingLocation,setEditingLocation]=useState<string|null>(null);
   const [showArchived,setShowArchived]=useState(false);
   const [metricsDate,setMetricsDate]=useState(today);
-  const [notice,setNotice]=useState('');
   const [error,setError]=useState('');
   const [signingOut,setSigningOut]=useState(false);
   const measurements=Object.values(records.measurements);
-  const estimates=bodyEstimates(profile,measurements,today);
-  const latestWeight=latestMeasurement(measurements,'weight_kg',today);
-  const importedHeight=measurements.filter(m=>m.kind==='height_cm'&&m.source==='apple_health'&&m.date<=today).sort((a,b)=>b.date.localeCompare(a.date)||b.recordedAt.localeCompare(a.recordedAt))[0];
   const locations=Object.values(records.locations).sort((a,b)=>a.name.localeCompare(b.name));
   const metric:DayMetrics=records.metrics[metricsDate]??{id:metricsDate,date:metricsDate,steps:null,waterL:0,activeEnergy:null,restingEnergy:null,exerciseMinutes:null,source:'manual'};
   const imported=metric.source==='apple_health'||!!Object.keys(metric.healthSources??{}).length;
   const metricSource=(field:'steps'|'activeEnergy'|'restingEnergy'|'exerciseMinutes')=>metric.healthSources?(metric.healthSources[field]??'Manual entry'):metric.source==='apple_health'?'Apple Health':'Manual entry';
-  const patch=(values:Partial<ProfileRecord>)=>upsert('profiles',{...profile,...values});
-  const goal=(key:keyof ProfileRecord['goals'],value:number|null)=>{if(value!==null)patch({goals:{...profile.goals,[key]:value}});};
-  const setMetric=(field:'steps'|'activeEnergy'|'restingEnergy'|'exerciseMinutes'|'waterL',value:number|null)=>upsert('metrics',{...metric,[field]:field==='waterL'?value??0:value,source:'manual'});
+  const setMetric=(field:'steps'|'activeEnergy'|'restingEnergy'|'exerciseMinutes',value:number|null)=>upsert('metrics',{...metric,[field]:value,source:'manual'});
   const saveTimezone=()=>{const zone=normalizedTimezone(timezone);if(zone){patch({timezone:zone});setTimezone(zone);setTimezoneError('');}else setTimezoneError('Enter a valid time zone, such as America/Los_Angeles.');};
-  const saveBirthday=()=>{const message=pastDateError(birthday,today,true);setBirthdayError(message??'');if(!message)patch({birthday});};
-  const completeOnboarding=()=>{const zone=normalizedTimezone(timezone),message=pastDateError(birthday,today,true);setBirthdayError(message??'');setTimezoneError(zone?'':'Enter a valid time zone, such as America/Los_Angeles.');if(!zone||message){setError('Check the highlighted profile fields before continuing.');return;}setError('');patch({birthday,timezone:zone,onboardingComplete:true});};
-  const addWeight=()=>{const dateError=pastDateError(weightDate,today);if(weight===null||!Number.isFinite(weight)||weight<=0){setError('Enter a positive weight.');return;}if(dateError){setError(dateError);return;}upsert('measurements',{id:newId(),date:weightDate,kind:'weight_kg',value:profile.weightUnit==='lb'?weight*0.45359237:weight,source:'manual',recordedAt:new Date().toISOString()});setWeight(null);setNotice('Weight measurement saved.');setError('');};
-  const addLocation=()=>{if(!locationName.trim()){setLocationError('Enter a location name.');return;}if(locations.some(location=>!location.archived&&location.name.trim().toLowerCase()===locationName.trim().toLowerCase())){setLocationError('That location is already in your list.');return;}upsert('locations',{id:newId(),name:locationName.trim(),notes:locationNotes.trim()});setLocationName('');setLocationNotes('');setLocationError('');};
+  const addLocation=()=>{const name=locationName.trim();if(!name){setLocationError('Enter a location name.');return;}if(locations.some(location=>!location.archived&&location.name.trim().toLowerCase()===name.toLowerCase())){setLocationError('That location is already in your list.');return;}upsert('locations',{id:newId(),name,notes:''});setLocationName('');setLocationError('');};
   const archiveLocation=(location:Location)=>{upsert('locations',{...location,archived:!location.archived});if(!location.archived&&profile.defaultLocationId===location.id)patch({defaultLocationId:undefined});};
   const logout=async()=>{setSigningOut(true);setError('');try{await signOut();}catch(e){setError((e as Error).message);setSigningOut(false);}};
-  return <main className={s.page}><header className={s.header}><div className={s.row}>{!onboarding?<Link className={s.button} href="/" aria-label="Back to body">← Body</Link>:null}<div><span className={s.subtle}>{onboarding?'WELCOME TO SANTORIO':'YOUR JOURNAL'}</span><h1 className={s.title}>{onboarding?'Make it yours':'Settings'}</h1></div></div><SaveStatus/></header>
-    {onboarding?<p className={n.help}>Start with a name and your preferred units. Body measurements and goals are editable anytime. You can begin logging without completing the optional estimate fields.</p>:null}
-    <div className={s.stack}>
-      <section className={s.card}><h2 className={s.sectionTitle}>Profile</h2><div className={s.stack}><TextField label="Name" value={profile.name} onChange={name=>patch({name})} placeholder="What should we call you?"/><div className={s.grid}><label className={s.field}>Weight unit<select className={s.select} value={profile.weightUnit} onChange={e=>{setWeight(null);patch({weightUnit:e.target.value as 'lb'|'kg'});}}><option value="lb">Pounds · lb</option><option value="kg">Kilograms · kg</option></select></label><label className={s.field}>Date of birth (optional)<input className={s.input} type="date" max={today} value={birthday} aria-invalid={!!birthdayError} onChange={e=>setBirthday(e.target.value)} onBlur={saveBirthday}/></label></div>{birthdayError?<p className={s.error} role="alert">{birthdayError}</p>:null}<label className={s.field}>Time zone<input className={s.input} list="timezone-options" value={timezone} onChange={e=>setTimezone(e.target.value)} onBlur={saveTimezone}/><datalist id="timezone-options">{['America/Los_Angeles','America/Denver','America/Chicago','America/New_York','Europe/London','Europe/Paris','Asia/Kolkata','Asia/Singapore','Asia/Tokyo','Australia/Sydney','UTC'].map(zone=><option key={zone}>{zone}</option>)}</datalist></label>{timezoneError?<p className={s.error} role="alert">{timezoneError}</p>:null}<p className={n.mutedNotice}>Dates in the diary and training log use this time zone. Changing it does not move previous entries to another day.</p></div></section>
-      <section className={s.card}><h2 className={s.sectionTitle}>Body measurements</h2><div className={s.stack}><div className={s.grid}><label className={s.field}>Height unit<select className={s.select} value={heightUnit} onChange={e=>setHeightUnit(e.target.value as 'cm'|'in')}><option value="cm">Centimeters</option><option value="in">Inches</option></select></label>{profile.heightSource==='manual'?<NumberField label={`Height (${heightUnit}) · optional`} value={profile.heightCm===null?null:Number((profile.heightCm/(heightUnit==='in'?2.54:1)).toFixed(2))} min={0.01} max={heightUnit==='in'?110:280} onChange={value=>patch({heightCm:value===null?null:value*(heightUnit==='in'?2.54:1),heightSource:'manual',heightUpdatedAt:new Date().toISOString()})}/>:<div className={s.field}>Imported height<strong>{estimates.heightCm===null?'—':`${(estimates.heightCm/(heightUnit==='in'?2.54:1)).toFixed(1)} ${heightUnit}`}</strong></div>}</div><label className={s.field}>Height source<select className={s.select} value={profile.heightSource} onChange={e=>patch({heightSource:e.target.value as 'manual'|'apple_health',...(e.target.value==='apple_health'&&importedHeight?{heightCm:importedHeight.value,heightUpdatedAt:importedHeight.recordedAt}:{})})}><option value="manual">Manual entry</option><option value="apple_health" disabled={!importedHeight}>Latest Apple Health import</option></select></label><p className={n.mutedNotice}>{profile.heightSource==='apple_health'?`Apple Health${importedHeight?` · ${asOf(importedHeight.recordedAt,profile.timezone)}`:''}`:profile.heightUpdatedAt?`Manually updated ${asOf(profile.heightUpdatedAt,profile.timezone)}`:'No imported height yet. Manual entry is available.'}</p>
-      <div className={n.portionSummary}>Latest weight: {latestWeight?`${(latestWeight.value*(profile.weightUnit==='lb'?1/.45359237:1)).toFixed(1)} ${profile.weightUnit}`:'—'}{latestWeight?<div className={n.mutedNotice}>{latestWeight.date} · {latestWeight.source==='apple_health'?'Apple Health':'manual'}</div>:null}</div>
-      <div className={s.grid}><NumberField label={`New weight (${profile.weightUnit})`} value={weight} onChange={setWeight} min={0.01} max={profile.weightUnit==='lb'?1500:680} step={.1} placeholder="Optional"/><label className={s.field}>Measurement date<input className={s.input} type="date" value={weightDate} max={today} onChange={e=>setWeightDate(e.target.value)}/></label></div><button type="button" className={s.button} onClick={addWeight}>Record weight</button>
-      {!onboarding?<details className={n.detailGroup}><summary>Measurement history</summary>{measurements.filter(m=>m.kind==='weight_kg').sort((a,b)=>b.date.localeCompare(a.date)||b.recordedAt.localeCompare(a.recordedAt)).map(measurement=><div className={n.listButton} key={measurement.id}><span><strong>{(measurement.value*(profile.weightUnit==='lb'?1/.45359237:1)).toFixed(1)} {profile.weightUnit}</strong><small>{measurement.date} · {measurement.source==='apple_health'?'Apple Health':'manual'}</small></span>{measurement.source==='manual'?<button type="button" className={`${s.button} ${s.danger}`} onClick={()=>remove('measurements',measurement.id)}>Remove</button>:null}</div>)}{!measurements.some(m=>m.kind==='weight_kg')?<p className={s.subtle}>No weight measurements yet.</p>:null}</details>:null}</div></section>
-      <section className={s.card}><h2 className={s.sectionTitle}>Energy estimate</h2><div className={s.stack}><div className={s.grid}><label className={s.field}>Sex coefficient for the estimate<select className={s.select} value={profile.sex??''} onChange={e=>patch({sex:(e.target.value||null) as ProfileRecord['sex']})}><option value="">Not set</option><option value="male">Male coefficient</option><option value="female">Female coefficient</option></select></label><label className={s.field}>Usual activity level<select className={s.select} value={profile.activity} onChange={e=>patch({activity:e.target.value as ProfileRecord['activity']})}><option value="sedentary">Sedentary</option><option value="light">Light</option><option value="moderate">Moderate</option><option value="very">Very active</option></select></label></div><div className={s.grid}><div className={n.portionSummary}>Resting estimate<br/><strong>{estimates.bmr===null?'—':`≈ ${Math.round(estimates.bmr).toLocaleString()} kcal/day`}</strong></div><div className={n.portionSummary}>Daily expenditure estimate<br/><strong>{estimates.tdee===null?'—':`≈ ${Math.round(estimates.tdee).toLocaleString()} kcal/day`}</strong></div></div><p className={n.help}>Uses the <a href="https://pubmed.ncbi.nlm.nih.gov/2305711/" target="_blank" rel="noreferrer">Mifflin–St Jeor equation</a> as a resting-energy proxy, then your activity factor for a full-day estimate. Requires adult age, height, weight, and a sex coefficient. Missing inputs stay unknown. When daily active energy is imported, the home screen uses the resting estimate + that active energy. The activity multiplier and workout calories are not added again. Imported resting energy is retained for reference.</p></div></section>
-      <section className={s.card}><h2 className={s.sectionTitle}>Your daily goals</h2><p className={n.help}>Goals are yours to choose. Imported measurements never replace them.</p><div className={s.grid}><NumberField label="Energy balance target (kcal)" value={profile.goals.balanceTarget} min={-10000} max={10000} step={50} onChange={value=>goal('balanceTarget',value)}/><NumberField label="Protein (g)" value={profile.goals.proteinG} min={0} step={5} onChange={value=>goal('proteinG',value)}/><NumberField label="Steps" value={profile.goals.steps} min={0} step={500} onChange={value=>goal('steps',value)}/><NumberField label="Water (fl oz)" value={waterOunces(profile.goals.waterL)} min={0} max={waterOunces(30)} step={8} onChange={value=>goal('waterL',value===null?null:fluidOuncesToLiters(value))}/></div><p className={n.mutedNotice}>Energy balance: 0 for maintenance; negative for a deficit; positive for a surplus. This is a target, not a measured result.</p></section>
-      {!onboarding?<>
-        <section className={s.card}><h2 className={s.sectionTitle}>Workout locations</h2><p className={n.help}>Choose a saved gym when starting a workout. Its machine setups and past results stay associated with that location.</p><div className={s.stack}><label className={s.field}>Default location<select className={s.select} value={profile.defaultLocationId??''} onChange={e=>patch({defaultLocationId:e.target.value||undefined})}><option value="">No default</option>{locations.filter(l=>!l.archived).map(location=><option key={location.id} value={location.id}>{location.name}</option>)}</select></label><label className={n.check}><input type="checkbox" checked={showArchived} onChange={e=>setShowArchived(e.target.checked)}/>Show archived locations</label>{locations.filter(l=>showArchived||!l.archived).map(location=><div className={s.card} key={location.id}><div className={s.stack}><TextField label={location.archived?'Location name · archived':'Location name'} value={location.name} onChange={name=>upsert('locations',{...location,name})}/><TextField label="Location notes" value={location.notes??''} onChange={notes=>upsert('locations',{...location,notes})}/><button type="button" className={s.button} onClick={()=>archiveLocation(location)}>{location.archived?'Restore location':'Archive location'}</button></div></div>)}<div className={s.grid}><TextField label="New location" value={locationName} onChange={setLocationName} placeholder="e.g. Crunch San Mateo"/><TextField label="Notes (optional)" value={locationNotes} onChange={setLocationNotes}/></div>{locationError?<p className={s.error} role="alert">{locationError}</p>:null}<button className={s.button} type="button" onClick={addLocation}>+ Add location</button></div></section>
-        <HealthConnection/>
-        <section className={s.card}><h2 className={s.sectionTitle}>Daily activity values</h2><DayNav date={metricsDate} onChange={setMetricsDate} markedDates={Object.keys(records.metrics)} label="Daily activity"/>{imported?<><p className={n.help}>Health import · {asOf(metric.importedAt,profile.timezone)}. These values are shown as received.</p><dl className={s.summary}><div><dt>Steps</dt><dd>{displayNumber(metric.steps)}{metric.steps!==null?<><br/><small className={n.mutedNotice}>{metricSource('steps')}</small></>:null}</dd></div><div><dt>Active energy</dt><dd>{displayNumber(metric.activeEnergy)} kcal{metric.activeEnergy!==null?<><br/><small className={n.mutedNotice}>{metricSource('activeEnergy')}</small></>:null}</dd></div><div><dt>Resting energy</dt><dd>{displayNumber(metric.restingEnergy)} kcal{metric.restingEnergy!==null?<><br/><small className={n.mutedNotice}>{metricSource('restingEnergy')}</small></>:null}</dd></div><div><dt>Exercise time</dt><dd>{displayNumber(metric.exerciseMinutes)} min{metric.exerciseMinutes!==null?<><br/><small className={n.mutedNotice}>{metricSource('exerciseMinutes')}</small></>:null}</dd></div></dl></>:<><p className={n.help}>Optional manual values until Health import is connected. Leave unknown values blank.</p><div className={s.grid}><NumberField label="Steps" value={metric.steps} onChange={value=>setMetric('steps',value)} min={0} step={100}/><NumberField label="Active energy (kcal)" value={metric.activeEnergy} onChange={value=>setMetric('activeEnergy',value)} min={0}/><NumberField label="Resting energy (kcal)" value={metric.restingEnergy} onChange={value=>setMetric('restingEnergy',value)} min={0}/><NumberField label="Exercise minutes" value={metric.exerciseMinutes} onChange={value=>setMetric('exerciseMinutes',value)} min={0} max={1440}/></div><label className={n.check}><input type="checkbox" checked={!!metric.completeDay} onChange={e=>upsert('metrics',{...metric,completeDay:e.target.checked})}/>These values cover the complete day</label></>}</section>
-        <ConnectedApps/>
-      </>:null}
-      {notice?<p className={n.portionSummary} role="status">{notice}</p>:null}{error?<p className={s.error} role="alert">{error}</p>:null}
-      {onboarding?<div className={n.stickyActions}><button type="button" className={`${s.button} ${s.primary}`} onClick={completeOnboarding}>Continue to Santorio</button><p className={n.mutedNotice}>You can update all of this later.</p></div>:<footer className={s.stack}><p className={s.subtle}>Signed in as {user.email}</p><div className={s.row}><Link className={s.button} href="/">Back to body</Link><button type="button" className={`${s.button} ${s.danger}`} disabled={signingOut} onClick={()=>void logout()}>{signingOut?'Signing out…':'Sign out'}</button></div></footer>}
+  const weights=measurements.filter(m=>m.kind==='weight_kg').sort((a,b)=>b.date.localeCompare(a.date)||b.recordedAt.localeCompare(a.recordedAt));
+  const shown=(kg:number)=>`${(kg*(profile.weightUnit==='lb'?1/.45359237:1)).toFixed(1)} ${profile.weightUnit}`;
+  return <main className={`${s.page} ${st.screen}`}>
+    <ViewHeader label="Settings"><SaveStatus/></ViewHeader>
+    <div className={st.groups}>
+      <h2 className={st.groupTitle}>Profile</h2>
+      <section className={st.group}>
+        <Row label="Name"><input className={`${st.input} ${st.text}`} value={profile.name} onChange={e=>patch({name:e.target.value})} placeholder="Your name" aria-label="Name"/></Row>
+        <BirthdayRow/>
+        <Row label="Time zone"><input className={`${st.input} ${st.text}`} list="timezone-options" value={timezone} aria-invalid={!!timezoneError} onChange={e=>setTimezone(e.target.value)} onBlur={saveTimezone} aria-label="Time zone"/><datalist id="timezone-options">{['America/Los_Angeles','America/Denver','America/Chicago','America/New_York','Europe/London','Europe/Paris','Asia/Kolkata','Asia/Singapore','Asia/Tokyo','Australia/Sydney','UTC'].map(zone=><option key={zone}>{zone}</option>)}</datalist></Row>
+        {timezoneError?<p className={st.error} role="alert">{timezoneError}</p>:null}
+      </section>
+      <h2 className={st.groupTitle}>Body</h2>
+      <section className={st.group}>
+        <WeightRows/>
+        {weights.length?<details className={st.history}><summary className={st.note}>Weight history</summary>{weights.map(m=><p key={m.id}><span>{shown(m.value)}</span><small>{m.date} · {m.source==='apple_health'?'Apple Health':<button type="button" onClick={()=>remove('measurements',m.id)}>manual · remove</button>}</small></p>)}</details>:null}
+        <HeightRow/>
+        <EstimateRows/>
+      </section>
+      <h2 className={st.groupTitle}>Daily goals</h2>
+      <section className={st.group}><BalanceRows/><GoalRows/></section>
+      <h2 className={st.groupTitle}>Workout locations</h2>
+      <section className={st.group}>
+        {locations.filter(l=>showArchived||!l.archived).map(location=><div key={location.id}><div className={st.location}>
+          <input className={`${st.input} ${st.text}`} style={{textAlign:'left',width:'auto'}} value={location.name} onChange={e=>upsert('locations',{...location,name:e.target.value})} aria-label="Location name" onFocus={()=>setEditingLocation(location.id)}/>
+          {!location.archived?<button type="button" className={st.star} aria-pressed={profile.defaultLocationId===location.id} aria-label={`Make ${location.name} the default`} onClick={()=>patch({defaultLocationId:profile.defaultLocationId===location.id?undefined:location.id})}><Star size={16} fill={profile.defaultLocationId===location.id?'currentColor':'none'}/></button>:null}
+          <button type="button" className={st.star} aria-label={location.archived?`Restore ${location.name}`:`Archive ${location.name}`} onClick={()=>archiveLocation(location)}>{location.archived?<ArchiveRestore size={16}/>:<Archive size={16}/>}</button>
+        </div>{editingLocation===location.id||location.notes?<input className={`${st.input} ${st.text}`} style={{textAlign:'left',width:'100%',height:30,fontSize:13,marginBottom:6}} value={location.notes??''} onChange={e=>upsert('locations',{...location,notes:e.target.value})} placeholder="Notes" aria-label={`${location.name} notes`}/>:null}</div>)}
+        <div className={st.location}><input className={st.input} style={{flex:1}} value={locationName} onChange={e=>setLocationName(e.target.value)} placeholder="New location" aria-label="New location" onKeyDown={e=>{if(e.key==='Enter')addLocation();}}/><button type="button" className={st.pill} onClick={addLocation}>Add</button></div>
+        {locationError?<p className={st.error} role="alert">{locationError}</p>:null}
+        {locations.some(l=>l.archived)?<button type="button" className={st.note} onClick={()=>setShowArchived(!showArchived)}>{showArchived?'Hide archived':'Show archived'}</button>:null}
+      </section>
+      <p className={st.note} style={{margin:'-10px 4px 0'}}>★ marks the default for new workouts.</p>
+      <HealthConnection/>
+      <section className={st.group}><details><summary>Daily activity values</summary>
+        <DayNav date={metricsDate} onChange={setMetricsDate} markedDates={Object.keys(records.metrics)} label="Daily activity"/>
+        {imported?<>{(['steps','activeEnergy','restingEnergy','exerciseMinutes'] as const).map(field=><Row key={field} label={{steps:'Steps',activeEnergy:'Active energy',restingEnergy:'Resting energy',exerciseMinutes:'Exercise'}[field]} hint={metric[field]!==null?metricSource(field):undefined}><span className={st.readout}>{displayNumber(metric[field])}<i> {field==='steps'?'':field==='exerciseMinutes'?'min':'kcal'}</i></span></Row>)}<p className={st.note}>Imported {metric.importedAt?new Date(metric.importedAt).toLocaleString():''}. Shown as received.</p></>:<>
+          {(['steps','activeEnergy','restingEnergy','exerciseMinutes'] as const).map(field=><Row key={field} label={{steps:'Steps',activeEnergy:'Active energy',restingEnergy:'Resting energy',exerciseMinutes:'Exercise'}[field]}><span className={st.with}><NumberField compact className={`${st.input} ${st.short}`} label={field} value={metric[field]} onChange={value=>setMetric(field,value)} min={0} max={field==='exerciseMinutes'?1440:undefined}/><i>{field==='steps'?'':field==='exerciseMinutes'?'min':'kcal'}</i></span></Row>)}
+          <Row label="Covers the whole day"><input type="checkbox" checked={!!metric.completeDay} onChange={e=>upsert('metrics',{...metric,completeDay:e.target.checked})} aria-label="These values cover the complete day"/></Row>
+          <p className={st.note}>Manual values until Apple Health is connected. Leave unknowns blank.</p>
+        </>}
+      </details></section>
+      <ConnectedApps/>
+      {error?<p className={s.error} role="alert">{error}</p>:null}
+      <div className={st.footer}><span>Signed in as {user.email}</span><button type="button" className={`${st.pill} ${st.ghost}`} disabled={signingOut} onClick={()=>void logout()}>{signingOut?'Signing out…':'Sign out'}</button></div>
     </div>
   </main>;
 }

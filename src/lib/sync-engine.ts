@@ -5,6 +5,8 @@ type Job = { collection: Collection; id: string; data: Collections[Collection]|n
 export type SyncSnapshot = { records: RecordsState; status: SaveState; error: string|null; pendingCount: number };
 export type Persisted = { server: StoredRecord[]; queue: Job[] };
 export type Transport = (job: Job) => Promise<{ ok: boolean; status: number; record?: StoredRecord; error?: string; current?: StoredRecord|null }>;
+/** Merges a draft onto a newer server copy when the other writer's fields are known; null asks the owner. */
+export type Rebase = (collection: Collection, draft: Collections[Collection], current: Collections[Collection]) => Collections[Collection]|null;
 /** One writer per browser (Web Locks in DataProvider), optimistic versions across devices. */
 export class SyncEngine {
   private server = new Map<string, StoredRecord>();
@@ -17,7 +19,7 @@ export class SyncEngine {
   private rejectedKey:string|null=null;
   private timer?: ReturnType<typeof setTimeout>;
   private snapshot: SyncSnapshot = { records: emptyRecords(), status: 'loading', error: null, pendingCount: 0 };
-  constructor(private persist: (data: Persisted) => void, private transport: Transport, private uuid = () => crypto.randomUUID()) {}
+  constructor(private persist: (data: Persisted) => void, private transport: Transport, private rebase: Rebase = () => null, private uuid = () => crypto.randomUUID()) {}
   subscribe = (fn: () => void) => { this.listeners.add(fn); return () => { this.listeners.delete(fn); }; };
   getSnapshot = () => this.snapshot;
   hydrate(saved: Persisted|null) {
@@ -44,7 +46,9 @@ export class SyncEngine {
     this.listeners.forEach(fn=>fn());
   }
   private save() {
-    try { this.persist({server:[...this.server.values()],queue:this.queue}); return true; }
+    // Only unsynced edits are kept on the device; /api/bootstrap reloads everything else. Persisting
+    // every record (each meal carries full food snapshots) outgrows the ~5 MB browser storage quota.
+    try { this.persist({server:[],queue:this.queue}); return true; }
     catch { this.paused=true; this.emit('error','This browser could not save your draft locally. Keep this page open and free some browser storage, then retry.'); return false; }
   }
   upsert<K extends Collection>(collection:K,data:Collections[K]) { this.enqueue(collection,data.id,structuredClone(data)); }
@@ -53,11 +57,13 @@ export class SyncEngine {
     const repairing=this.rejectedKey===this.key(collection,id);
     const matches=this.queue.filter(j=>j.collection===collection&&j.id===id);
     const last=matches.at(-1);
-    if(last&&!last.attempted) last.data=data;
+    // Deleting a draft the server has never seen: dropping it is the whole delete (a DELETE would 404).
+    if(data===null&&!matches.some(j=>j.attempted)&&(matches[0]?.expectedVersion??this.server.get(this.key(collection,id))?.version??0)===0) this.queue=this.queue.filter(j=>!matches.includes(j));
+    else if(last&&!last.attempted) last.data=data;
     else this.queue.push({collection,id,data,expectedVersion:last?last.expectedVersion+1:(this.server.get(this.key(collection,id))?.version??0),mutationId:this.uuid(),attempted:false});
     if(repairing){this.paused=false;this.rejectedKey=null;}
     if(!this.save())return;
-    this.emit(this.paused?this.snapshot.status:'saving',this.paused?this.snapshot.error:null);
+    this.emit(this.paused?this.snapshot.status:this.queue.length?'saving':'saved',this.paused?this.snapshot.error:null);
     clearTimeout(this.timer); this.timer=setTimeout(()=>void this.flush(),400);
   }
   async flush() {
@@ -71,6 +77,24 @@ export class SyncEngine {
         try { result=await this.transport(structuredClone(job)); }
         catch { this.paused=true; this.emit('offline','Saved on this device. Waiting to sync.'); break; }
         if(this.stopped)break;
+        const savedKey=this.key(job.collection,job.id);
+        const isRelated=(j:Job)=>j.collection===job.collection&&j.id===job.id;
+        if(!result.ok&&result.status===404&&job.data===null) {
+          // Already absent on the server, which is what the delete wanted. Later drafts recreate it from version 0.
+          this.server.delete(savedKey);this.queue.shift();
+          this.queue.filter(isRelated).forEach((j,i)=>{j.expectedVersion=i;});
+          if(!this.save())break;
+          this.emit(this.queue.length?'saving':'saved',null);continue;
+        }
+        const latest=this.queue.filter(isRelated).at(-1)!;
+        const rebased=result.status===409&&result.current&&!result.current.deleted&&latest.data?this.rebase(job.collection,latest.data,result.current.data):null;
+        if(rebased&&result.current) {
+          // A known concurrent writer (Health import) changed fields this draft doesn't own: reapply the draft on top instead of asking.
+          this.server.set(savedKey,result.current);
+          this.queue=[{...latest,data:rebased,expectedVersion:result.current.version,mutationId:this.uuid(),attempted:false},...this.queue.filter(j=>!isRelated(j))];
+          if(!this.save())break;
+          continue;
+        }
         if(!result.ok) {
           this.paused=true;
           if(result.status===409) { this.conflict=result.current??null; this.emit('conflict','This record changed elsewhere. Your draft is still saved here. Choose which version to keep.'); }
@@ -88,7 +112,6 @@ export class SyncEngine {
           break;
         }
         if(!result.record) { this.paused=true; this.emit('error','The server returned an invalid save response. Your draft is preserved.'); break; }
-        const savedKey=this.key(job.collection,job.id);
         if((this.server.get(savedKey)?.version??0)<=result.record.version)this.server.set(savedKey,result.record);
         this.queue.shift();
         if(!this.save())break;
