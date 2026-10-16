@@ -21,12 +21,12 @@ const chakra = Chakra_Petch({
 });
 
 export const metadata: Metadata = {
-  title: "Soma",
+  title: "Santorio",
   description: "Energy in, energy out, and everything in between.",
-  applicationName: "Soma",
+  applicationName: "Santorio",
   appleWebApp: {
     capable: true,
-    title: "Soma",
+    title: "Santorio",
     statusBarStyle: "black-translucent",
   },
 };

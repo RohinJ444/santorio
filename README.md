@@ -1,4 +1,6 @@
-# Soma
+# Santorio
+
+Named for Santorio Santorio (1561–1636), who weighed himself, his food and his excretions on a scale-chair for decades: the first measurements of the body's balance of energy in and out.
 
 A personal PWA for the body: energy in (nutrition), energy out (training), and eventually the mind.
 

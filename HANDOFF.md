@@ -1,4 +1,4 @@
-# Soma: handoff from the visual first pass
+# Santorio: handoff from the visual first pass
 
 First pass at the look and interactions, built by Claude Code. Next steps from here
 (data, persistence, auth, performance, deploy) go to Codex. Everything below

@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Soma",
-    short_name: "Soma",
+    name: "Santorio",
+    short_name: "Santorio",
     description: "Energy in, energy out, and everything in between.",
     start_url: "/",
     display: "standalone",
