@@ -70,7 +70,7 @@ export default function HomeOverlay({ intro }: Props) {
           >
             <div className={s.tiles}>
               <Link href="/diet" className={s.tile} data-tone={balance < 0 ? "out" : "warn"}>
-                <div className={`${s.tileKey} ${s.tight}`}>Energy balance</div>
+                <div className={s.tileKey}>Energy balance</div>
                 <div className={s.tileVal}>
                   {balance < 0 ? "−" : "+"}
                   {fmtInt(Math.abs(balance))}

@@ -350,7 +350,7 @@ button.label:active {
   --c: var(--out);
   display: block;
   min-width: 0;
-  padding: 10px 11px 11px;
+  padding: 10px 9px 11px;
   border-radius: 14px;
   text-align: left;
   background: rgba(8, 15, 28, 0.66);
@@ -363,20 +363,16 @@ button.tile:active {
   border-color: var(--line-strong);
 }
 
+/* one size for all three so "Energy balance" fits on a line down to 375px-wide phones */
 .tileKey {
   display: flex;
   justify-content: space-between;
   font-family: var(--font-sans);
-  font-size: 10.5px;
-  letter-spacing: 0.1em;
+  font-size: 9.5px;
+  letter-spacing: 0.075em;
+  white-space: nowrap;
   text-transform: uppercase;
   color: var(--text-3);
-}
-
-.tight {
-  font-size: 10px;
-  letter-spacing: 0.03em;
-  white-space: nowrap;
 }
 
 .tile[data-tone="out"] {
