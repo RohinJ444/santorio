@@ -12,12 +12,12 @@ type Key = "mind" | "qin" | "qout";
 // No thousands separator: in mono the comma takes a full-width cell and opens a gap.
 const kcal = (n: number) => String(Math.round(n));
 
-const PAD = 14;
+const PAD = 22; // inset of the callout columns from the screen edges
 const clamp = (v: number, a: number, b: number) => Math.min(Math.max(v, a), b);
 
 // label side and vertical offset from its anchor
-const LAYOUT: Record<Key, { side: Side; dy: number }> = {
-  mind: { side: "right", dy: -58 },
+const LAYOUT: Record<Key, { side: Side; dy: number; inset?: number }> = {
+  mind: { side: "right", dy: 40, inset: 54 }, // by the shoulder line, in from the edge, clear of the greeting name
   qin: { side: "left", dy: 26 },
   qout: { side: "right", dy: -6 },
 };
@@ -28,10 +28,10 @@ function place(host: HTMLElement, key: Key, top: number, bottom: number) {
   const wire = host.querySelector<SVGGElement>(`[data-wire="${key}"]`);
   if (!el || !wire) return;
   const a = anchors[key];
-  const { side, dy } = LAYOUT[key];
+  const { side, dy, inset = PAD } = LAYOUT[key];
   const lw = el.offsetWidth;
   const lh = el.offsetHeight;
-  const lx = side === "right" ? anchors.w - PAD - lw : PAD;
+  const lx = side === "right" ? anchors.w - inset - lw : inset;
   const cy = clamp(a.y + dy, top + lh / 2, bottom - lh / 2);
   el.style.transform = `translate3d(${lx}px, ${cy - lh / 2}px, 0)`;
 
