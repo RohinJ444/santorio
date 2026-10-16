@@ -9,8 +9,8 @@ import a from './auth.module.css';
 
 type Consent = { clientName: string; clientId: string; redirectUri: string; scope: string; csrfToken: string };
 const scopes: Record<string, string> = {
-  'nutrition:read': 'Read your food library and recipe templates.',
-  'nutrition:write': 'Create or edit foods and recipe templates in your library.',
+  'nutrition:read': 'Read your food library, recipe templates, meal-prep batches and food diary.',
+  'nutrition:write': 'Create or edit foods, recipe templates and logged meals in your food diary.',
   'workouts:read': 'Read your exercise library, workout sessions and saved gym locations.',
   'workouts:write': 'Create or edit exercises and workout sessions.',
 };

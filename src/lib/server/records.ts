@@ -22,11 +22,21 @@ export async function getRecord(db:SupabaseClient,ownerId:string,collection:Coll
   if(error) throw new HttpError(503,'Unable to load this record');
   return data ? stored(data as Row) : null;
 }
-export async function saveRecord(db:SupabaseClient,ownerId:string,collection:Collection,id:string,value:unknown,expectedVersion:number,mutationId:string,deleted=false) {
+/** Replay before resolving mutable source records, so retries keep the originally saved snapshots. */
+export async function replayRecordMutation(db:SupabaseClient,ownerId:string,mutationId:string,fingerprint:string):Promise<StoredRecord|null> {
+  const {data:prior,error}=await db.from('record_mutations').select('fingerprint,result').eq('owner_id',ownerId).eq('mutation_id',mutationId).maybeSingle();
+  if(error) throw new HttpError(503,'Unable to check this change');
+  if(!prior) return null;
+  if(prior.fingerprint!==fingerprint) throw new HttpError(409,'This mutation ID was already used for a different change');
+  return stored(prior.result.record as Row);
+}
+export async function saveRecord(db:SupabaseClient,ownerId:string,collection:Collection,id:string,value:unknown,expectedVersion:number,mutationId:string,deleted=false,requestFingerprint?:string) {
   idSchema.parse(id);
   const data=deleted ? null : validateRecord(collection,value);
   if(data&&data.id!==id) throw new HttpError(400,'Record ID does not match the URL');
-  const fingerprint=hash(JSON.stringify({collection,id,data,expectedVersion,deleted}));
+  // Hydrated creates may use a server-derived request hash, never a client-provided hash:
+  // the same retry must survive changes to the source food or batch after its first save.
+  const fingerprint=requestFingerprint??hash(JSON.stringify({collection,id,data,expectedVersion,deleted}));
   const {data:result,error}=await db.rpc('save_record',{p_owner_id:ownerId,p_collection:collection,p_id:id,p_data:data,p_expected_version:expectedVersion,p_mutation_id:mutationId,p_fingerprint:fingerprint,p_deleted:deleted});
   if(error?.code==='23514'&&['A Watch workout can only be linked once','The selected Watch workout is unavailable','This Watch workout is already linked to another workout'].includes(error.message)) throw new HttpError(422,error.message);
   if(error) throw new HttpError(error.code==='P0002'?404:503,error.code==='P0002'?'Record not found':'Unable to save this change');

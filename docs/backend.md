@@ -21,7 +21,7 @@ The records table stores one JSON aggregate per workout, recipe, batch, diary en
 
 ## MCP and OAuth
 
-MCP endpoint: APP_URL/api/mcp (Streamable HTTP, stateless JSON responses). It exposes search_foods/get_food/save_food/search_recipes/get_recipe/save_recipe, search_exercises/get_exercise/save_exercise, search_workouts/get_workout/save_workout, and list_locations. It cannot query arbitrary SQL or access raw imported Health data. Workout searches support an inclusive local-date range, exercise/title text and saved location; exercise searches also filter by primary or secondary muscle group. MCP annotations distinguish reads from writes; saving a researched food should follow user review in the calling client.
+MCP endpoint: APP_URL/api/mcp (Streamable HTTP, stateless JSON responses). The existing 13 tools are search_foods/get_food/save_food/search_recipes/get_recipe/save_recipe, search_exercises/get_exercise/save_exercise, search_workouts/get_workout/save_workout, and list_locations. Version 1.2.0 adds search_diary/get_diary_entry/log_meal/save_diary_entry/search_batches/get_batch, for 19 tools in total. It cannot query arbitrary SQL or access raw imported Health data. Workout searches support an inclusive local-date range, exercise/title text and saved location; exercise searches also filter by primary or secondary muscle group. MCP annotations distinguish reads from writes; saving a researched food should follow user review in the calling client.
 
 OAuth metadata lives at /.well-known/oauth-authorization-server and /.well-known/oauth-protected-resource/api/mcp. The authorization server advertises CIMD (`client_id_metadata_document_supported: true`) and also supports public dynamic registration for clients that still use DCR. It is not restricted to ChatGPT. CIMD plural token_endpoint_auth_methods_supported is intersected with our advertised methods; the legacy singular preference is used only when the plural field is absent. This supports ChatGPT's current document advertising both none and private_key_jwt, while selecting none. Authorization responses include RFC 9207 iss on success and denial, enabling ChatGPT's stable metadata and callback URLs. Clients must support public-client authorization code flow with S256 PKCE and exact resource binding. Client secret and private_key_jwt authentication are not implemented or advertised.
 
@@ -29,11 +29,53 @@ CIMD uses a public HTTPS metadata URL as client_id. Metadata must contain matchi
 
 GET /api/oauth/authorize validates the request and sends the signed-in owner to /oauth/consent?request_id=.... GET /api/oauth/consent returns {clientName,clientId,redirectUri,scope,csrfToken}. POST accepts {requestId,decision,csrfToken} and returns {redirectUrl}. Consent requests expire after ten minutes. A one-use five-minute code binds client ID, redirect, resource, and PKCE challenge. Tokens are random 256-bit opaque values, stored only as SHA-256 digests. Access lasts one hour; refresh tokens rotate with a thirty-day expiry. Reusing a code or refresh token revokes the grant. The database performs consumption and rotation atomically. Connections can be listed/revoked through GET/DELETE /api/oauth/connections; OAuth revocation endpoint is /api/oauth/revoke. Every MCP call checks the token, resource, grant revocation, live owner identity, and tool scope.
 
-Scopes: nutrition:read, nutrition:write, workouts:read and workouts:write. Omitted scope retains the original nutrition-only default. Existing grants remain unchanged; workout permissions need a fresh owner-approved authorization. The read scope covers the exercise library, workout sessions and saved gym lookup; write covers exercise and workout saves, not gym editing. OAuth discovery/register/token/revocation endpoints permit CORS; MCP token calls validate any browser Origin against APP_URL and MCP_ALLOWED_ORIGINS. There is no cookie-authenticated MCP fallback. Durable rate limits apply to authentication and public OAuth entry points.
+Scopes: nutrition:read, nutrition:write, workouts:read and workouts:write. Omitted scope retains the original nutrition-only default. Existing grants remain unchanged; workout permissions need a fresh owner-approved authorization. Nutrition read covers food/recipe lookup and diary/batch lookup; nutrition write covers food/recipe saves and diary logging/editing. The extension adds no OAuth scope. Workouts read covers the exercise library, workout sessions and saved gym lookup; workouts write covers exercise and workout saves, not gym editing. OAuth discovery/register/token/revocation endpoints permit CORS; MCP token calls validate any browser Origin against APP_URL and MCP_ALLOWED_ORIGINS. There is no cookie-authenticated MCP fallback. Durable rate limits apply to authentication and public OAuth entry points.
 
 Workout saves use the same validated/versioned aggregate service as the app. Clients must fetch the complete current workout before editing, retain nested exercise/set IDs and all unmentioned fields, and review conflicts rather than blindly overwriting. New exercise and gym references must resolve to owner records. Existing historical references remain usable even if later archived/deleted. Duplicate nested IDs are rejected. Health/routine associations are preserved, not created by these tools. Partial/null, fractional, per-side, drop/rest-pause and cardio results remain supported. When a retry is behind the current version, the shared idempotency ledger runs before reference preflight so cached acknowledgements are retained. Exercise definition edits do not rewrite old workout snapshots.
 
 Opening `/api/mcp` directly in a browser returns an expected 401 bearer-token challenge. Configure this URL in the AI client's MCP connection settings using OAuth/CIMD; do not paste a secret key or expect the normal app login cookie to authenticate MCP. The app itself is at `/`.
+
+## Diary MCP extension (1.2.0)
+
+The six new tools reuse existing record collections and the mutation ledger; no schema migration is required. `search_diary` filters by `query`, inclusive `dateFrom`/`dateTo`, optional `meal`, and `limit` (default 30, maximum 100). It returns recent entries, macro totals, current versions, and `hasMore`. `get_diary_entry` returns the complete entry plus calculated nutrient totals, preserving `null`, `partial`, and `estimated` information. `search_batches` accepts the same search fields except `meal`; `get_batch` returns the full batch and totals for the entire batch. Archived batches are excluded from search and cannot be newly logged. Creating or editing batches remains in the app; no batch-write tool is exposed.
+
+Before logging, search the target date and meal to avoid duplicating an existing entry, then use `search_foods`/`get_food` or the batch tools to obtain the correct saved source. `log_meal` creates one diary entry containing all supplied foods or one prep portion. `foodVersion` and `batchVersion` mean the source record's top-level `version`, not the embedded food's `revision`. A changed source returns a conflict for review rather than silently selecting new nutrition values.
+
+Example `log_meal` arguments for an approximate 6 fl oz milk portion follow. The UUIDs and version are illustrative: use the actual food ID/version and fresh entry/mutation UUIDs for a new meal.
+
+```json
+{
+  "id": "10000000-0000-4000-8000-000000000001",
+  "date": "2026-10-16",
+  "meal": "Breakfast",
+  "name": "Milk",
+  "estimated": true,
+  "mutationId": "20000000-0000-4000-8000-000000000001",
+  "source": {
+    "kind": "foods",
+    "items": [
+      {
+        "foodId": "30000000-0000-4000-8000-000000000001",
+        "foodVersion": 1,
+        "quantity": 6,
+        "unit": "fl oz"
+      }
+    ]
+  }
+}
+```
+
+Add more food portions to `source.items` to log a complete meal together. Each item may include a `note`. `date` is the owner's local calendar date; optional `time` is `HH:mm` or empty when unknown. `notes` defaults to empty. Meal categories are `Breakfast`, `Lunch`, `Dinner`, `Snack`, and `Supplements`. `serving` means one full saved nutrition basis; `fl oz` is volume and `oz` is mass. Unsupported volume-to-mass conversions are rejected rather than inventing a density.
+
+For a batch portion, replace `source` with `{"kind":"batch","batchId":"<saved batch UUID>","batchVersion":1,"portion":{"kind":"fraction","fraction":0.2}}` to log one fifth. Alternatively use `"portion":{"kind":"anchor","quantity":4.8,"unit":"oz"}` for an equivalent amount of the saved anchor ingredient, such as dry pasta. Use the actual batch version. The entry retains the whole batch's ingredient quantities and applies the fraction once through its multiplier; never scale both. Logging preserves the food revisions already embedded in the batch, independently of later library changes.
+
+Keep both the entry `id` and `mutationId` unchanged when retrying an identical `log_meal` request. A server-derived request fingerprint lets the mutation ledger return the original saved entry even if a source was subsequently changed or deleted. Reusing the mutation ID for different arguments returns 409. New meals require fresh IDs. The saved response includes full calculated nutrient totals; verify diary creation rather than treating a saved library food as a consumed meal.
+
+For edits, call `get_diary_entry`, then send `save_diary_entry` the complete `data` object as `entry`, its top-level version as `expectedVersion` (at least 1), and a fresh `mutationId`. Preserve `kind`, `batchId`, retained ingredient IDs and their complete food snapshots, plus all unmentioned fields. Existing snapshots cannot be replaced with newer library values. An added/replacement ingredient needs a fresh ingredient UUID and the complete current food from `get_food`. To customize a prep plate, first multiply its ingredient quantities by the existing multiplier, then set `multiplier:1`, `anchorIngredientId:null`, and `portionCustomized:true` before making the plate changes. A stale entry version returns 409; refetch and review instead of overwriting. An identical save retry retains its mutation ID.
+
+Local extension verification on 2026-10-16: 205 tests passed and one opt-in live test was skipped; TypeScript, ESLint, and the production build passed. `src/lib/server/mcp-diary.integration.sql` also passed against Supabase in a rollback-only, owner-authenticated transaction: diary creation, ledger lookup, replay after a changed hydrated source, rejection of changed mutation content and duplicate creation, and a single history version. No test records persisted. These checks verify the implementation; production deployment and the new ChatGPT diary actions remain pending.
+
+The owner confirmed that the existing ChatGPT OAuth connection and a tool call work after **Manage app → Refresh tools** and a new chat. That confirms the previously deployed tools, not this local extension. After the approved deployment, refresh tools again and start a new chat to discover all 19 tools; a new scope grant is unnecessary when the connection already has nutrition read/write permissions.
 
 ## Health integration
 
@@ -49,7 +91,7 @@ See [phone setup and import guidance](#health-auto-export-setup). Public receive
 
 ## Verification
 
-Run npm test and npm run build. Security unit tests also reject forged recovery intent, enforce recovery session binding and one-use proof consumption. Security unit tests cover strict record validation, unknown nutrients, canonical units, ingredient conversions, invalid anchors, private metadata addresses, redirect validation, exact Origin, resource/scopes, and a standard PKCE test vector. The rollback-only integration suite in src/lib/server/backend.integration.sql exercises anonymous denial, confirmed-owner RLS, idempotent replay, stale-version conflict, duplicate mutation rejection, code exchange, refresh rotation/replay, and revocation. End-to-end ChatGPT connection still requires the user's client-side approval; never report that as complete based only on endpoint tests.
+Run npm test and npm run build. Security unit tests also reject forged recovery intent, enforce recovery session binding and one-use proof consumption. Security unit tests cover strict record validation, unknown nutrients, canonical units, ingredient conversions, invalid anchors, private metadata addresses, redirect validation, exact Origin, resource/scopes, and a standard PKCE test vector. The rollback-only integration suite in src/lib/server/backend.integration.sql exercises anonymous denial, confirmed-owner RLS, idempotent replay, stale-version conflict, duplicate mutation rejection, code exchange, refresh rotation/replay, and revocation. The owner has now confirmed the existing ChatGPT connection and tool execution. The deployment verification notes below are historical and do not establish deployment of the local diary extension.
 
 Verified on 2026-10-16: 31 backend unit/transport tests pass; the optional live ChatGPT CIMD fetch passes (SANTORIO_LIVE_TESTS=1); rollback-only remote SQL checks pass with no test owner, record, grant, or recovery proof remaining. The Supabase dashboard automatic-RLS trigger's unnecessary anonymous/authenticated EXECUTE privileges were revoked without disabling the event trigger. Server-only OAuth/recovery tables intentionally have RLS enabled with no client policies.
 
@@ -57,13 +99,13 @@ Verified on 2026-10-16: 31 backend unit/transport tests pass; the optional live 
 
 Production: https://santorio-gamma.vercel.app (Vercel project Santorio / santorio). MCP endpoint: https://santorio-gamma.vercel.app/api/mcp. Deployment dpl_4NhgXjLff1CXFDEx5xtJoaJ6g8x7 was READY on 2026-10-16. That initial deployment uploaded the local working tree based on commit 3acc039, before the implementation changes were committed.
 
-Final local verification: 86 tests pass, one opt-in live CIMD test is skipped in the default suite (previously passed separately); TypeScript, ESLint, diff whitespace checks and production build pass. Public production checks return 200 for the app, auth status, manifest/icons and OAuth discovery, and 401 with the appropriate challenge for unauthenticated MCP access. Private bootstrap also returns 401 without a session. Signed-in home/profile rendering was observed locally in a second browser tab and on production. Full interactive workout/nutrition acceptance testing remains incomplete because browser control stalled; email password recovery and ChatGPT's full consent/tool-call flow still need user-side testing.
+Verification at that initial deployment: 86 tests passed, one opt-in live CIMD test was skipped in the default suite (previously passed separately); TypeScript, ESLint, diff whitespace checks and production build passed. Public production checks returned 200 for the app, auth status, manifest/icons and OAuth discovery, and 401 with the appropriate challenge for unauthenticated MCP access. Private bootstrap also returned 401 without a session. Signed-in home/profile rendering was observed locally in a second browser tab and on production. Full interactive workout/nutrition acceptance testing remained incomplete because browser control stalled; email password recovery and ChatGPT's full consent/tool-call flow were still pending user-side testing at that point.
 
 Supabase security advisor: server-only OAuth/rate-limit/recovery tables intentionally use default-deny RLS without client policies. Leaked-password screening is not enabled; see https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection for availability and configuration.
 
 ## Workout MCP extension
 
-Deployed 2026-10-16 as dpl_85H4cJfU2qz7pmeTEydagK7Sz2zX, READY at the same production origin. MCP server version 1.1.0 provides 13 tools. All 110 default tests pass (one separately opt-in live CIMD test skipped); lint, TypeScript and production build pass. Eighteen new MCP transport tests cover the exercise/workout tools and six added security tests cover scope consent/compatibility. Live rollback-only database checks verify exercise/workout creation, partial/fractional results, versioned update, retry acknowledgement and stale-write rejection; no test records remain. Production OAuth and resource discovery advertise both workout scopes, while unauthenticated GET/POST MCP requests retain the 401 challenge. End-to-end ChatGPT authorization and tool execution remain unverified until connected by the owner.
+Deployed 2026-10-16 as dpl_85H4cJfU2qz7pmeTEydagK7Sz2zX, READY at the same production origin. MCP server version 1.1.0 provides 13 tools. At that deployment, all 110 default tests passed (one separately opt-in live CIMD test skipped); lint, TypeScript and production build passed. Eighteen new MCP transport tests covered the exercise/workout tools and six added security tests covered scope consent/compatibility. Live rollback-only database checks verified exercise/workout creation, partial/fractional results, versioned update, retry acknowledgement and stale-write rejection; no test records remained. Production OAuth and resource discovery advertised both workout scopes, while unauthenticated GET/POST MCP requests retained the 401 challenge. ChatGPT authorization and tool execution were unverified at that point; the owner subsequently confirmed the connection works after refreshing tools.
 
 
 ## Health Auto Export setup
