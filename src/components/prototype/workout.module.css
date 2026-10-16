@@ -208,3 +208,9 @@
 .cardioSummary { min-width: 0; color: var(--text-2); font: 11px/1.4 var(--font-mono); }
 .cardioFoot .unitToggle { flex: none; overflow: visible; }
 .cardioFoot .unitToggle > button { flex: none !important; min-height: 28px !important; padding: 3px 10px !important; }
+.timeLine { display: block; margin-top: 8px; color: var(--text-2); font: 12px var(--font-mono); text-align: left; }
+.timeRow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.timeInput { position: relative; display: block; }
+.timeInput input { padding-right: 34px; font-family: var(--font-mono); }
+.timeInput button { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; color: var(--text-3); }
+.note { field-sizing: content; min-height: 44px; max-height: 180px; }

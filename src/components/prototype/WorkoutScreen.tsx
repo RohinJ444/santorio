@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Dumbbell, Ellipsis, Library, MapPin, Plus, Repeat, Trash2 } from 'lucide-react';
+import { Check, Dumbbell, Ellipsis, Library, MapPin, Plus, Repeat, Trash2, X } from 'lucide-react';
+import { endAfter, zonedClock, zonedInstant, zonedLabel } from '@/lib/domain/time';
 import { useData } from '@/lib/data-store';
 import { newId, type ExerciseDefinition, type Location, type Routine, type SessionExercise, type Targets, type WorkoutSession } from '@/lib/domain/types';
 import { applyTargets, completedWorkingSets, displayNumber, effectiveLocationId, exerciseHasResults, newSession, newSessionExercise, normalizeSetup, repeatSession, resultSummary, routineFromSession, workoutInsights } from '@/lib/domain/workouts';
@@ -29,9 +30,10 @@ export default function WorkoutScreen() {
   const [removedExercise, setRemovedExercise] = useState<{ sessionId: string; exercise: SessionExercise; index: number } | null>(null);
   const [notice, setNotice] = useState('');
   const [details, setDetails] = useState(false);
-  const sessions = Object.values(records.workouts).sort((a, b) => b.date.localeCompare(a.date) || b.startedAt.localeCompare(a.startedAt));
+  const zone = profile.timezone;
+  const sessions = Object.values(records.workouts).sort((a, b) => b.date.localeCompare(a.date) || (b.startedAt ?? '').localeCompare(a.startedAt ?? ''));
   const routines = Object.values(records.routines).sort((a, b) => a.name.localeCompare(b.name));
-  const daySessions = sessions.filter(session => session.date === date).sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+  const daySessions = sessions.filter(session => session.date === date).sort((a, b) => (a.startedAt ?? '').localeCompare(b.startedAt ?? ''));
   const selected = daySessions.find(session => session.id === selectedId) ?? daySessions.find(session => session.status === 'active') ?? daySessions.at(-1);
   const routine = routineEditor ? records.routines[routineEditor] : undefined;
   const locations = Object.values(records.locations);
@@ -40,7 +42,9 @@ export default function WorkoutScreen() {
   const chooseDate = (value: string) => { setDate(value); setSelectedId(null); setNotice(''); };
   const openSession = (session: WorkoutSession) => { setDate(session.date); setSelectedId(session.id); setTab('workouts'); };
   const createSession = (source?: WorkoutSession | Routine) => {
-    const session = source ? repeatSession(source, date) : newSession(date, profile.defaultLocationId ?? null, daySessions.length ? `Workout ${daySessions.length + 1}` : 'Workout');
+    // Logging a past day after the fact: no start time unless you add one.
+    const startedAt = date === data.today ? new Date().toISOString() : undefined;
+    const session = source ? repeatSession(source, date, startedAt) : newSession(date, profile.defaultLocationId ?? null, daySessions.length ? `Workout ${daySessions.length + 1}` : 'Workout', startedAt);
     upsert('workouts', session); setSelectedId(session.id); setTab('workouts'); setStarting(false); setNotice('');
   };
   const updateExercise = (session: WorkoutSession, next: SessionExercise) => upsert('workouts', { ...session, exercises: session.exercises.map(exercise => exercise.id === next.id ? next : exercise) });
@@ -50,7 +54,7 @@ export default function WorkoutScreen() {
     if (library.kind === 'session') {
       const session = records.workouts[library.id];
       if (!session) return;
-      const prior = sessions.filter(item => item.id !== session.id && (item.date < session.date || (item.date === session.date && item.startedAt < session.startedAt))).flatMap(item => item.exercises.map(exercise => ({ item, exercise })))
+      const prior = sessions.filter(item => item.id !== session.id && (item.date < session.date || (item.date === session.date && (item.startedAt ?? '') < (session.startedAt ?? '')))).flatMap(item => item.exercises.map(exercise => ({ item, exercise })))
         .find(({ item, exercise }) => exercise.exerciseId === definition.id && exercise.tracking === definition.tracking && effectiveLocationId(exercise, item) === session.locationId);
       if (prior) entry = applyTargets({ ...entry, equipment: prior.exercise.equipment }, { ...prior.exercise.targets });
       upsert('workouts', { ...session, exercises: [...session.exercises, entry] });
@@ -111,6 +115,7 @@ export default function WorkoutScreen() {
             <span className={s.stat}><b>{selected.exercises.length}</b> exercises · <b>{sets}</b> sets</span>
             <button type="button" className={`${s.more} ${s.push}`} aria-label="Workout details and actions" onClick={() => setDetails(true)}><Ellipsis size={18} /></button>
           </div>
+          {selected.startedAt || selected.completedAt ? <button type="button" className={s.timeLine} onClick={() => setDetails(true)}>{selected.startedAt && selected.completedAt ? `${zonedLabel(selected.startedAt, zone)} – ${zonedLabel(selected.completedAt, zone)}` : selected.startedAt ? selected.status === 'active' ? `${zonedLabel(selected.startedAt, zone)} – now` : `Started ${zonedLabel(selected.startedAt, zone)}` : `Ended ${zonedLabel(selected.completedAt!, zone)}`}</button> : null}
           {selected.notes ? <button type="button" className={s.sessionNote} onClick={() => setDetails(true)}>{selected.notes}</button> : null}
         </section>
         {selected.exercises.map((exercise, index) => <WorkoutExercise
@@ -123,7 +128,7 @@ export default function WorkoutScreen() {
         {removedExercise?.sessionId === selected.id ? <div className={s.undo} role="status">{removedExercise.exercise.name} removed<button type="button" onClick={() => { const exercises = [...selected.exercises]; exercises.splice(Math.min(removedExercise.index, exercises.length), 0, removedExercise.exercise); upsert('workouts', { ...selected, exercises }); setRemovedExercise(null); }}>Undo</button></div> : null}
         <button type="button" className={s.addExercise} onClick={() => setLibrary({ kind: 'session', id: selected.id })}><Plus size={16} />Add exercise</button>
         <div className={s.endRow}>
-          <button type="button" className={s.finish} data-done={selected.status === 'complete'} onClick={() => upsert('workouts', { ...selected, status: selected.status === 'active' ? 'complete' : 'active', completedAt: selected.status === 'active' ? new Date().toISOString() : undefined })}>{selected.status === 'active' ? 'Finish workout' : <><Check size={15} />Finished · reopen</>}</button>
+          <button type="button" className={s.finish} data-done={selected.status === 'complete'} onClick={() => upsert('workouts', { ...selected, status: selected.status === 'active' ? 'complete' : 'active', completedAt: selected.status === 'active' ? selected.completedAt ?? (selected.date === data.today ? new Date().toISOString() : undefined) : undefined })}>{selected.status === 'active' ? 'Finish workout' : <><Check size={15} />Finished · reopen</>}</button>
           {daySessions.length === 1 ? <button type="button" className={s.finish} onClick={() => setStarting(true)}><Plus size={15} />Workout</button> : null}
         </div>
       </> : null}
@@ -138,7 +143,12 @@ export default function WorkoutScreen() {
 
     {starting ? <StartWorkout routines={routines} sessions={sessions} locations={records.locations} onStart={createSession} onClose={() => setStarting(false)} /> : null}
     {details && selected ? <Modal title="Workout" onClose={() => setDetails(false)}><div className={s.stack}>
-      <label className={s.field}>Date<input type="date" value={selected.date} onChange={event => { if (event.target.value) { upsert('workouts', { ...selected, date: event.target.value }); setDate(event.target.value); setSelectedId(selected.id); } }} /></label>
+      <label className={s.field}>Date<input type="date" value={selected.date} onChange={event => { const next = event.target.value; if (!next) return; const move = (iso?: string) => iso ? zonedInstant(next, zonedClock(iso, zone), zone) : undefined; const startedAt = move(selected.startedAt); const completedAt = move(selected.completedAt); upsert('workouts', { ...selected, date: next, startedAt, completedAt: completedAt ? endAfter(startedAt, completedAt) : undefined }); setDate(next); setSelectedId(selected.id); }} /></label>
+      <div className={s.timeRow}>
+        <label className={s.field}>Start<span className={s.timeInput}><input type="time" value={selected.startedAt ? zonedClock(selected.startedAt, zone) : ''} onChange={event => { const startedAt = event.target.value ? zonedInstant(selected.date, event.target.value, zone) : undefined; upsert('workouts', { ...selected, startedAt, completedAt: selected.completedAt ? endAfter(startedAt, zonedInstant(selected.date, zonedClock(selected.completedAt, zone), zone)) : undefined }); }} />{selected.startedAt ? <button type="button" aria-label="Clear start time" onClick={() => upsert('workouts', { ...selected, startedAt: undefined })}><X size={14} /></button> : null}</span></label>
+        <label className={s.field}>End<span className={s.timeInput}><input type="time" value={selected.completedAt ? zonedClock(selected.completedAt, zone) : ''} onChange={event => upsert('workouts', { ...selected, completedAt: event.target.value ? endAfter(selected.startedAt, zonedInstant(selected.date, event.target.value, zone)) : undefined })} />{selected.completedAt ? <button type="button" aria-label="Clear end time" onClick={() => upsert('workouts', { ...selected, completedAt: undefined })}><X size={14} /></button> : null}</span></label>
+      </div>
+      <p className={s.hint}>Optional. Leave them blank for a workout logged after the fact; an end before the start counts as past midnight.</p>
       <TextField label="Notes" value={selected.notes} onChange={notes => upsert('workouts', { ...selected, notes })} multiline placeholder="Energy, focus, anything to remember…" />
       <div className={s.sheetActions}>
         <button type="button" className={s.sheetAction} onClick={() => { setDetails(false); setSavingRoutine(true); }}><Repeat size={16} />Save as routine</button>

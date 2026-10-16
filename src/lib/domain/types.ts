@@ -37,7 +37,8 @@ export type SessionExercise = Entity & {
 };
 export type WorkoutSession = Entity & {
   date: string; title: string; locationId: string | null; status: 'active' | 'complete';
-  startedAt: string; completedAt?: string; notes: string; exercises: SessionExercise[];
+  /** Optional: a workout logged after the fact may have no known times. */
+  startedAt?: string; completedAt?: string; notes: string; exercises: SessionExercise[];
   routineId?: string; healthWorkoutIds: string[];
 };
 export type Routine = Entity & { name: string; locationId: string | null; exercises: SessionExercise[]; notes: string };

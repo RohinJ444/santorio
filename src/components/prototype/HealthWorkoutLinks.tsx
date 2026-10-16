@@ -86,7 +86,7 @@ function WatchWorkout({ workout, sessions, daySessions }: { workout: HealthWorko
 export default function HealthWorkoutLinks({ date }: { date: string }) {
   const { records } = useData();
   const sessions = Object.values(records.workouts);
-  const daySessions = sessions.filter(session => session.date === date).sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+  const daySessions = sessions.filter(session => session.date === date).sort((a, b) => (a.startedAt ?? '').localeCompare(b.startedAt ?? ''));
   const workouts = Object.values(records.healthWorkouts).filter(workout => workout.date === date).sort((a, b) => a.start.localeCompare(b.start));
   const unmatched = workouts.filter(workout => !existingLinks(workout.id, sessions).length).length;
   if (!workouts.length) return null;

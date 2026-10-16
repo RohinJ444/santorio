@@ -146,7 +146,7 @@ textarea.input { min-height: 72px; resize: vertical; }
 @keyframes pulse { to { opacity: 0.2; } }
 
 /* the shared header for workout, diet and settings */
-.viewHead { position: sticky; top: 0; z-index: 6; margin: 0 -14px 6px; padding: calc(var(--safe-top) + 8px) 14px 8px; background: linear-gradient(to bottom, rgba(3, 6, 12, 0.94) 70%, rgba(3, 6, 12, 0)); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.viewHead { position: sticky; top: 0; z-index: 6; margin: 0 -14px 6px; padding: calc(var(--safe-top) + 8px) 14px 8px; background: linear-gradient(to bottom, rgba(3, 6, 12, 0.98) 80%, rgba(3, 6, 12, 0)); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .viewRow { display: grid; grid-template-columns: 42px 1fr 42px; align-items: center; height: 46px; }
 .iconBtn { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 13px; color: var(--c); border: 1px solid color-mix(in srgb, var(--c) 30%, transparent); background: rgba(8, 14, 26, 0.6); }
 .viewTitle { display: flex; align-items: baseline; justify-content: center; gap: 8px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); }

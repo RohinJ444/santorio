@@ -8,6 +8,7 @@ import { fluidOuncesToLiters, waterOunces } from '@/lib/domain/water';
 import { cloneIngredients, combineTotals, formatAmount, nutrientTotals } from '@/lib/domain/nutrition';
 import { ChevronRight, Droplet, Ellipsis, Pencil, Plus } from 'lucide-react';
 import { DayNav, Modal, NumberField, SaveStatus, Segmented, ViewHeader } from './controls';
+import NutritionGoals from './NutritionGoals';
 import { EntryEditor, FoodEditor, FoodPicker, MEALS, NutrientBreakdown, NutritionSummary, PrepEditor, blankEntry, entryFromBatch } from './NutritionEditors';
 import s from './prototype.module.css';
 import n from './nutrition.module.css';
@@ -17,7 +18,7 @@ type Editor = {kind:'food';value?:FoodRecord} | {kind:'recipe';value:RecipeRecor
 export default function NutritionScreen() {
   const {records,upsert,remove,today,profile}=useData();
   const [date,setDate]=useState(today);
-  const [tab,setTab]=useState<'diary'|'prep'|'foods'>('diary');
+  const [tab,setTab]=useState<'diary'|'prep'|'foods'|'goals'>('diary');
   const [editor,setEditor]=useState<Editor>(null);
   const [addMeal,setAddMeal]=useState<MealGroup|null>(null);
   const [addType,setAddType]=useState<'foods'|'batches'>('foods');
@@ -62,7 +63,7 @@ export default function NutritionScreen() {
   const waterOz=waterOunces(metrics?.waterL??0),waterGoal=waterOunces(profile.goals.waterL);
   return <main className={`${s.page} ${n.screen}`}>
     <ViewHeader q="in" label="Nutrition"><DayNav date={date} onChange={changeDate} markedDates={markedDates} label="Nutrition"/><SaveStatus/></ViewHeader>
-    <Segmented label="Nutrition sections" value={tab} onChange={value=>{setTab(value);setNotice('');}} options={[{value:'diary',label:'Diary'},{value:'prep',label:'Meal prep'},{value:'foods',label:'Foods'}]}/>
+    <Segmented label="Nutrition sections" value={tab} onChange={value=>{setTab(value);setNotice('');}} options={[{value:'diary',label:'Diary'},{value:'prep',label:'Meal prep'},{value:'foods',label:'Foods'},{value:'goals',label:'Goals'}]}/>
     {notice?<p className={n.notice} role="status">{notice}</p>:null}
     {tab==='diary'?<div className={n.stack}>
       <button type="button" className={n.summaryCard} onClick={()=>setBreakdown(true)} aria-label="All nutrients for this day">
@@ -94,6 +95,7 @@ export default function NutritionScreen() {
         <div className={n.actions}><button type="button" className={`${s.button} ${s.primary}`} onClick={()=>logBatch(batch)}>Log a portion</button><button type="button" className={n.pill} onClick={()=>duplicateBatch(batch)}>Make again</button><details className={n.menu}><summary className={n.pill} aria-label="More batch actions"><Ellipsis size={14}/></summary><div><button type="button" onClick={()=>savePreset(batch)}>Save amounts as a preset</button><button type="button" className={n.danger} onClick={()=>{upsert('batches',{...batch,archived:true});setNotice('Batch archived. Logged meals stay in your diary.');}}>Archive batch</button></div></details></div>
       </section>;})}
     </div>:null}
+    {tab==='goals'?<NutritionGoals date={date}/>:null}
     {tab==='foods'?<div className={n.stack}>
       <div className={n.searchRow}><input className={s.input} value={foodQuery} onChange={e=>setFoodQuery(e.target.value)} placeholder="Search foods" aria-label="Search foods"/><button type="button" className={`${s.button} ${s.primary}`} onClick={()=>setEditor({kind:'food'})}><Plus size={15}/>Food</button></div>
       <section className={n.meals}>{foods.filter(food=>(showArchived||!food.archived)&&`${food.name} ${food.brand}`.toLowerCase().includes(foodQuery.toLowerCase())).map(food=>{const t=nutrientTotals([{id:'preview',food,quantity:1,unit:'serving'}]);const v=(key:string)=>formatAmount(t.find(x=>x.key===key)?.amount??null,0);return <div className={n.foodRow} key={food.id}>

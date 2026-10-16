@@ -104,3 +104,33 @@
 .listButton small { display: block; margin-top: 2px; color: var(--text-3); font-size: 12px; }
 .sectionGap { margin-top: 16px; }
 @media (min-width: 650px) { .nutrientFields { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* goals: Cronometer-style targets */
+.groupTitle { margin-bottom: 2px; font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); }
+.energyRow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.energyRow small { display: block; font: 10px var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+.energyRow b { font: 500 20px var(--font-mono); }
+.split { display: flex; height: 8px; gap: 2px; border-radius: 4px; overflow: hidden; background: rgba(120, 180, 255, 0.06); }
+.split i { display: block; min-width: 2px; }
+.split i[data-macro="protein"], .splitLegend [data-macro="protein"]::before { background: #7cc4ff; }
+.split i[data-macro="carbs"], .splitLegend [data-macro="carbs"]::before { background: var(--in); }
+.split i[data-macro="fat"], .splitLegend [data-macro="fat"]::before { background: var(--warn); }
+.split i[data-macro="none"] { flex: 1; background: none; }
+.splitLegend { display: flex; gap: 14px; margin-bottom: 4px; font: 11px var(--font-mono); color: var(--text-2); text-transform: capitalize; }
+.splitLegend span::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 2px; }
+.goalRow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) 98px 32px; gap: 8px; align-items: center; min-height: 28px; font-size: 12px; }
+.goalRow + .goalRow { border-top: 1px solid rgba(120, 180, 255, 0.05); }
+.goalName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.goalName i { font-style: normal; color: var(--text-3); font-size: 10px; }
+.goalValue { font: 11px var(--font-mono); color: var(--text); white-space: nowrap; text-align: right; }
+.goalValue i { font-style: normal; color: var(--text-3); }
+.goalPct { font: 11px var(--font-mono); color: var(--text-3); text-align: right; }
+.goalRow[data-state="unknown"] .goalName, .goalRow[data-state="unknown"] .goalValue { color: var(--text-3); }
+.goalRow[data-state="met"] .goalPct { color: var(--c); }
+.goalRow[data-state="over"] .goalPct, .goalRow[data-state="over"] .goalValue { color: var(--warn); }
+.goalBar { display: block; height: 5px; border-radius: 3px; background: rgba(120, 180, 255, 0.07); overflow: hidden; }
+.goalBar i { display: block; height: 100%; border-radius: 3px; background: color-mix(in srgb, var(--c) 75%, transparent); }
+.goalBar[data-kind="max"] i { background: rgba(160, 190, 220, 0.45); }
+.goalBar i[data-over="true"] { background: var(--warn); }
+.card > .goalBar { height: 8px; }
+.rangeToggle { margin-bottom: 0 !important; }

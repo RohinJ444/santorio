@@ -37,7 +37,7 @@ export const schemas = {
   locations:z.strictObject({...entity,name,notes:text.optional(),archived:z.boolean().optional()}),
   exercises:z.strictObject({...entity,name,tracking,primaryMuscle:name,secondaryMuscles:z.array(name).max(30),perHand:z.boolean(),unilateral:z.boolean(),notes:text.optional(),archived:z.boolean().optional()}),
   routines:z.strictObject({...entity,name,locationId:idSchema.nullable(),exercises:z.array(sessionExercise).max(100),notes:text}),
-  workouts:z.strictObject({...entity,date,title:name,locationId:idSchema.nullable(),status:z.enum(['active','complete']),startedAt:timestamp,completedAt:timestamp.optional(),notes:text,exercises:z.array(sessionExercise).max(100),routineId:idSchema.optional(),healthWorkoutIds:z.array(idSchema).max(100)}),
+  workouts:z.strictObject({...entity,date,title:name,locationId:idSchema.nullable(),status:z.enum(['active','complete']),startedAt:timestamp.optional(),completedAt:timestamp.optional(),notes:text,exercises:z.array(sessionExercise).max(100),routineId:idSchema.optional(),healthWorkoutIds:z.array(idSchema).max(100)}),
   foods:foodSchema,
   recipes:recipeSchema,
   batches:z.strictObject({...entity,name,date,recipeId:idSchema.nullable(),ingredients,anchorIngredientId:idSchema.nullable(),notes:text,archived:z.boolean().optional()}),

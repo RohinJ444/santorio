@@ -9,8 +9,9 @@ export function blankSet(targets: Targets, warmup = false): TrainingSet {
   return { id: newId(), warmup, targetReps: targets.reps, targetRepsMax: targets.repsMax ?? null, segments: [{ weight: null, reps: null }] };
 }
 
-export function newSession(date: string, locationId: string | null, title = 'Workout'): WorkoutSession {
-  return { id: newId(), date, title, locationId, status: 'active', startedAt: new Date().toISOString(), notes: '', exercises: [], healthWorkoutIds: [] };
+/** startedAt defaults to now; pass undefined for a workout logged after the fact. */
+export function newSession(date: string, locationId: string | null, title = 'Workout', startedAt: string | undefined = new Date().toISOString()): WorkoutSession {
+  return { id: newId(), date, title, locationId, status: 'active', ...(startedAt ? { startedAt } : {}), notes: '', exercises: [], healthWorkoutIds: [] };
 }
 
 export function newSessionExercise(definition: ExerciseDefinition, weightUnit: 'lb' | 'kg'): SessionExercise {
@@ -33,9 +34,9 @@ export function clearExerciseResults(exercise: SessionExercise): SessionExercise
   };
 }
 
-export function repeatSession(source: WorkoutSession | Routine, date: string): WorkoutSession {
+export function repeatSession(source: WorkoutSession | Routine, date: string, startedAt: string | undefined = new Date().toISOString()): WorkoutSession {
   return {
-    ...newSession(date, source.locationId, 'title' in source ? source.title : source.name),
+    ...newSession(date, source.locationId, 'title' in source ? source.title : source.name, startedAt),
     exercises: source.exercises.map(exercise => ({ ...clearExerciseResults(exercise), ...(!('title' in source) ? { routineExerciseId: exercise.id } : {}) })),
     ...('title' in source ? (source.routineId ? { routineId: source.routineId } : {}) : { routineId: source.id }),
   };
@@ -103,8 +104,8 @@ export function sameSetup(a: SessionExercise, aSession: WorkoutSession, b: Sessi
 export type ExerciseHistory = { session: WorkoutSession; exercise: SessionExercise; same: boolean };
 
 export function exerciseHistory(sessions: WorkoutSession[], current: WorkoutSession, exercise: SessionExercise): ExerciseHistory[] {
-  return sessions.filter(session => session.id !== current.id && (session.date < current.date || (session.date === current.date && session.startedAt < current.startedAt)))
-    .sort((a, b) => b.date.localeCompare(a.date) || b.startedAt.localeCompare(a.startedAt))
+  return sessions.filter(session => session.id !== current.id && (session.date < current.date || (session.date === current.date && (session.startedAt ?? '') < (current.startedAt ?? ''))))
+    .sort((a, b) => b.date.localeCompare(a.date) || (b.startedAt ?? '').localeCompare(a.startedAt ?? ''))
     .flatMap(session => session.exercises.filter(item => item.exerciseId === exercise.exerciseId && exerciseHasResults(item))
       .map(item => ({ session, exercise: item, same: sameSetup(exercise, current, item, session) })));
 }

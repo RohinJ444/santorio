@@ -18,7 +18,7 @@ const exerciseSearchOutput=z.strictObject({records:z.array(z.strictObject({
  id:idSchema,name:z.string(),version,tracking:schemas.exercises.shape.tracking,primaryMuscle:z.string(),secondaryMuscles:z.array(z.string()),archived:z.boolean(),
 }))});
 const workoutSearchOutput=z.strictObject({records:z.array(z.strictObject({
- id:idSchema,title:z.string(),version,date:schemas.workouts.shape.date,startedAt:z.iso.datetime({offset:true}),status:schemas.workouts.shape.status,locationId:idSchema.nullable(),exerciseCount:z.number().int().nonnegative(),exerciseNames:z.array(z.string()),
+ id:idSchema,title:z.string(),version,date:schemas.workouts.shape.date,startedAt:z.iso.datetime({offset:true}).optional(),status:schemas.workouts.shape.status,locationId:idSchema.nullable(),exerciseCount:z.number().int().nonnegative(),exerciseNames:z.array(z.string()),
 }))});
 const locationsOutput=z.strictObject({records:z.array(z.strictObject({id:idSchema,name:z.string(),version,archived:z.boolean()}))});
 
@@ -103,7 +103,7 @@ export function registerWorkoutTools(server:McpServer,access:McpAccess) {
   requireScope(access,'workouts:read');
   const records=await liveRecords(access,'workouts');const text=query.trim().toLowerCase();
   return result({records:records.filter(({data})=>(!fromDate||data.date>=fromDate)&&(!toDate||data.date<=toDate)&&(!locationId||locationIds(data).has(locationId))&&[data.title,...data.exercises.map(exercise=>exercise.name)].some(name=>name.toLowerCase().includes(text)))
-   .sort((a,b)=>b.data.date.localeCompare(a.data.date)||Date.parse(b.data.startedAt)-Date.parse(a.data.startedAt)||a.id.localeCompare(b.id)).slice(0,limit)
+   .sort((a,b)=>b.data.date.localeCompare(a.data.date)||(Date.parse(b.data.startedAt??'')||0)-(Date.parse(a.data.startedAt??'')||0)||a.id.localeCompare(b.id)).slice(0,limit)
    .map(({id,version,data})=>({id,version,title:data.title,date:data.date,startedAt:data.startedAt,status:data.status,locationId:data.locationId,exerciseCount:data.exercises.length,exerciseNames:data.exercises.map(exercise=>exercise.name)}))});
  }catch(error){return toolError(error);}});
  server.registerTool('get_workout',{
@@ -111,7 +111,7 @@ export function registerWorkoutTools(server:McpServer,access:McpAccess) {
   inputSchema:z.object({id:idSchema}),outputSchema:workoutOutput,annotations:readAnnotations,_meta:permissions('workouts:read'),
  },async({id})=>{try{return await get('workouts',id);}catch(error){return toolError(error);}});
  server.registerTool('save_workout',{
-  description:'Create or replace one complete workout session. For edits call get_workout first: retain all existing exercise/set IDs and every unmentioned field. Use expectedVersion and a fresh mutationId; on 409 refetch and review instead of overwriting. For creation use a fresh workout UUID, expectedVersion 0, healthWorkoutIds [], and omit routine links. Use real exercise IDs from search/save_exercise and real gym IDs from list_locations. Every session exercise and set needs its own unique UUID. Omit exercise.locationId to inherit the session gym; null means no gym. Preserve existing Health/routine links on updates. Include explicit lb/kg units, local date and a known offset timestamp for startedAt; ask for unknown start times. Null/unfinished/fractional/L/R results are valid; never fill actuals from target reps. Targets are plans, not logged results. Library definitions are snapshots inside the workout. Keep mutationId unchanged only when retrying the identical request.',
+  description:'Create or replace one complete workout session. For edits call get_workout first: retain all existing exercise/set IDs and every unmentioned field. Use expectedVersion and a fresh mutationId; on 409 refetch and review instead of overwriting. For creation use a fresh workout UUID, expectedVersion 0, healthWorkoutIds [], and omit routine links. Use real exercise IDs from search/save_exercise and real gym IDs from list_locations. Every session exercise and set needs its own unique UUID. Omit exercise.locationId to inherit the session gym; null means no gym. Preserve existing Health/routine links on updates. Include explicit lb/kg units and the local date. startedAt and completedAt are optional offset timestamps: include them only when known and omit them for workouts logged after the fact; never invent times. Null/unfinished/fractional/L/R results are valid; never fill actuals from target reps. Targets are plans, not logged results. Library definitions are snapshots inside the workout. Keep mutationId unchanged only when retrying the identical request.',
   inputSchema:z.object({workout:schemas.workouts.extend({title:named}),...mutationFields}),outputSchema:workoutOutput,annotations:writeAnnotations,_meta:permissions('workouts:write'),
  },async({workout,expectedVersion,mutationId})=>{try{return result(await saveWorkout(access,workout,expectedVersion,mutationId));}catch(error){return toolError(error);}});
  server.registerTool('list_locations',{
