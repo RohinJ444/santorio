@@ -28,9 +28,18 @@ export function emit() {
 }
 
 /** Drag-to-spin state, written by pointer handlers and read by the body each frame. */
-export const rig = { dragging: false, dragDelta: 0, velocity: 0, lock: null as number | null };
+type Shot = { pos: [number, number, number]; look: [number, number, number] };
+export const rig = {
+  dragging: false,
+  dragDelta: 0,
+  velocity: 0,
+  lock: null as number | null,
+  shot: null as Shot | null,
+};
 
-// Dev only: `__rig.lock = 0` freezes the turntable at an angle (radians) for reviewing the figure.
+// Dev only, for reviewing the figure from the console:
+//   __rig.lock = -Math.PI / 2   freeze the turntable (radians; this angle faces the camera)
+//   __rig.shot = { pos: [x, y, z], look: [x, y, z] }   override the camera (world space)
 if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
   (window as unknown as { __rig: typeof rig }).__rig = rig;
 }

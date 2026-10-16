@@ -23,7 +23,7 @@ function CameraRig({ route }: { route: Route }) {
   const goal = useMemo(() => ({ pos: new THREE.Vector3(), look: new THREE.Vector3() }), []);
 
   useFrame((_, dt) => {
-    const shot = SHOTS[route];
+    const shot = rig.shot ?? SHOTS[route];
     goal.pos.set(...shot.pos);
     goal.look.set(...shot.look);
     // narrow phones need a little more distance to fit the whole figure plus the HUD
