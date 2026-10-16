@@ -42,3 +42,6 @@ next-env.d.ts
 
 # local agent tooling
 .claude/
+
+# shareable screen recordings
+recordings/
