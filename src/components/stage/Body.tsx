@@ -1,14 +1,14 @@
 "use client";
 
 import { useGLTF } from "@react-three/drei";
-import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { Route } from "../routes";
-import { anchors, emit, rig } from "./anchors";
+import { anchors, emit, rig, type Part } from "./anchors";
 import { createGlowMaterial, createHologramMaterial, createOrganMaterial } from "./materials";
 import { buildBrain, buildGut } from "./organs";
-import { createPoser } from "./pose";
+import { createPoser, JUMP } from "./pose";
 import { subdivideSkinned } from "./subdivide";
 
 /**
@@ -29,12 +29,32 @@ const GUT_T = 0.62; // hips → chest
 const GUT_SCALE = 0.86; // this body is slimmer than the gut was modeled for
 
 const ease = (t: number) => 1 - Math.pow(1 - Math.min(Math.max(t, 0), 1), 3);
+
+// Tap-to-jump timeline (seconds): crouch, launch, airborne, land, recover.
+const JUMP_KEYS = {
+  crouch: [[0, 0], [0.2, 0.55], [0.3, 0.02], [0.68, 0], [0.76, 0.42], [1.2, 0]],
+  arms: [[0, 0], [0.2, 32], [0.32, -62], [0.62, -24], [0.76, 8], [1.2, 0]], // + back, − forward/up
+} as const;
+const AIR = { start: 0.29, end: 0.7, height: 0.2 };
+const LEG = { thigh: 0.365, shin: 0.46 }; // meters at 1.8 m
+
+function keyed(keys: readonly (readonly [number, number])[], t: number) {
+  if (t <= keys[0][0]) return keys[0][1];
+  for (let i = 1; i < keys.length; i++) {
+    const [t1, v1] = keys[i];
+    const [t0, v0] = keys[i - 1];
+    if (t <= t1) {
+      const u = (t - t0) / (t1 - t0);
+      return v0 + (v1 - v0) * u * u * (3 - 2 * u);
+    }
+  }
+  return keys[keys.length - 1][1];
+}
 const noRaycast = () => null;
 
-export type Part = "body" | "gut" | "brain";
-type Props = { route: Route; intro: boolean; onTap: (part: Part) => void };
+type Props = { route: Route; intro: boolean };
 
-export default function Body({ route, intro, onTap }: Props) {
+export default function Body({ route, intro }: Props) {
   const gltf = useGLTF(MODEL);
   const spin = useRef<THREE.Group>(null!);
   const model = useRef<THREE.Group>(null!);
@@ -42,7 +62,9 @@ export default function Body({ route, intro, onTap }: Props) {
   const gut = useRef<THREE.Group>(null!);
   const pedestal = useRef<THREE.Group>(null!);
   const start = useRef<number | null>(null);
-  const { camera, size } = useThree();
+  const jumpAt = useRef<number | null>(null);
+  const { camera, size, gl } = useThree();
+  const proxies = useRef<THREE.Object3D[]>([]);
   const pose = useMemo(() => createPoser(gltf.scene), [gltf.scene]);
 
   const mats = useMemo(
@@ -84,6 +106,8 @@ export default function Body({ route, intro, onTap }: Props) {
         head,
         hips: scene.getObjectByName(BONES.hips),
         chest: scene.getObjectByName(BONES.chest),
+        shin: scene.getObjectByName("shinL"),
+        foot: scene.getObjectByName("footL"),
       },
     };
   }, [gltf.scene]);
@@ -102,6 +126,23 @@ export default function Body({ route, intro, onTap }: Props) {
       m.raycast = noRaycast;
     });
   }, [gltf.scene, mats]);
+
+  // Taps are picked here so the DOM layer above the canvas (scrolling home) can still hit the body.
+  useEffect(() => {
+    const ray = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    anchors.canvas = gl.domElement;
+    anchors.pick = (x, y) => {
+      ray.setFromCamera(ndc.set(x, y), camera);
+      const parts = ray.intersectObjects(proxies.current, false).map((h) => h.object.userData.part as Part);
+      if (parts.includes("gut")) return "gut";
+      if (parts.includes("brain")) return "brain";
+      return parts.length ? "body" : null;
+    };
+    return () => {
+      anchors.pick = null;
+    };
+  }, [camera, gl]);
 
   const tmp = useMemo(
     () => ({ a: new THREE.Vector3(), b: new THREE.Vector3(), p: new THREE.Vector3(), q: new THREE.Vector3() }),
@@ -141,8 +182,31 @@ export default function Body({ route, intro, onTap }: Props) {
       g.rotation.y += ((home ? 0.16 : 0.05) + rig.velocity) * dt;
       rig.velocity *= Math.exp(-dt * 2.2);
     }
+    // tap-to-jump
+    if (rig.jumpRequested) {
+      rig.jumpRequested = false;
+      if (jumpAt.current === null) jumpAt.current = t;
+    }
+    let motion: { crouch: number; arms: number } | undefined;
+    g.position.y = 0;
+    if (rig.jumpScrub !== null && jumpAt.current === null) jumpAt.current = t;
+    if (jumpAt.current !== null) {
+      const j = rig.jumpScrub ?? t - jumpAt.current;
+      if (j > JUMP_KEYS.crouch[JUMP_KEYS.crouch.length - 1][0]) {
+        jumpAt.current = null;
+      } else {
+        const crouch = keyed(JUMP_KEYS.crouch, j);
+        motion = { crouch, arms: keyed(JUMP_KEYS.arms, j) };
+        // bent legs are shorter: drop the body by exactly that so the feet stay planted
+        const a = crouch * JUMP.thigh * (Math.PI / 180);
+        const s = crouch * (JUMP.shin - JUMP.thigh) * (Math.PI / 180);
+        const drop = LEG.thigh * (1 - Math.cos(a)) + LEG.shin * (1 - Math.cos(s));
+        const air = j > AIR.start && j < AIR.end ? AIR.height * Math.sin((Math.PI * (j - AIR.start)) / (AIR.end - AIR.start)) : 0;
+        g.position.y = air - drop;
+      }
+    }
     g.updateMatrixWorld();
-    pose.update(t);
+    pose.update(t, motion);
     mats.holo.uniforms.uInvRoot.value.copy(g.matrixWorld).invert();
     pedestal.current.rotation.y = -t * 0.12;
 
@@ -177,44 +241,43 @@ export default function Body({ route, intro, onTap }: Props) {
     gut.current.getWorldPosition(tmp.p);
     tmp.p.y += 0.06;
     project(tmp.p, anchors.qin);
-    tmp.p.set(RING, 0, 0);
-    project(tmp.p, anchors.qout);
+    // Q_out: just below the left knee, on the front of the shin
+    const { shin, foot } = fit.bones;
+    if (shin && foot) {
+      shin.getWorldPosition(tmp.a);
+      foot.getWorldPosition(tmp.b);
+      tmp.p.lerpVectors(tmp.a, tmp.b, 0.1);
+      tmp.b.set(0, 0, 1).applyQuaternion(pose.bodyFrame).applyQuaternion(g.quaternion);
+      tmp.p.addScaledVector(tmp.b, 0.05);
+      project(tmp.p, anchors.qout);
+    }
     anchors.w = size.width;
     anchors.h = size.height;
     anchors.ready = true;
     emit();
   });
 
-  const handleClick = (e: ThreeEvent<MouseEvent>) => {
-    e.stopPropagation();
-    if (e.delta > 8) return; // it was a drag
-    const parts = e.intersections.map((i) => i.object.userData.part as Part | undefined);
-    if (parts.includes("gut")) onTap("gut");
-    else if (parts.includes("brain")) onTap("brain");
-    else onTap("body");
-  };
-
   return (
     <>
-      <group ref={spin} onClick={handleClick}>
+      <group ref={spin}>
         <group ref={model} scale={fit.scale} position={fit.offset}>
           <primitive object={gltf.scene} dispose={null} />
         </group>
         <group ref={brain} quaternion={pose.bodyFrame}>
           <mesh geometry={geos.brain} material={mats.brain} renderOrder={1} raycast={noRaycast} />
-          <mesh userData={{ part: "brain" }}>
+          <mesh userData={{ part: "brain" }} ref={(m) => void (m && (proxies.current[0] = m))}>
             <sphereGeometry args={[0.6, 12, 10]} />
             <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
           </mesh>
         </group>
         <group ref={gut} quaternion={pose.bodyFrame}>
           <mesh geometry={geos.gut} material={mats.gut} renderOrder={1} raycast={noRaycast} />
-          <mesh userData={{ part: "gut" }} position={[0, -0.02, 0.03]}>
+          <mesh userData={{ part: "gut" }} position={[0, -0.02, 0.03]} ref={(m) => void (m && (proxies.current[1] = m))}>
             <sphereGeometry args={[0.14, 12, 10]} />
             <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
           </mesh>
         </group>
-        <mesh userData={{ part: "body" }} position={[0, HEIGHT / 2, 0]}>
+        <mesh userData={{ part: "body" }} position={[0, HEIGHT / 2, 0]} ref={(m) => void (m && (proxies.current[2] = m))}>
           <cylinderGeometry args={[0.27, 0.2, HEIGHT, 12]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
         </mesh>

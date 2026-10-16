@@ -38,8 +38,10 @@ const PELVIS_TUCK = 3.5; // posterior tilt: takes the sway out of the lower back
 const SHOULDERS = { down: 4.5, roll: 1.5 }; // dropped and slightly rounded, never pinned back
 const ARMS = {
   // elbow = forearm's forward angle from vertical (side view), measured, not added
-  L: { out: 6.5, fwd: 3, elbow: 10, twist: 0 },
-  R: { out: 8, fwd: 1.5, elbow: 13, twist: 0 },
+  // out/foreOut = upper arm / forearm angle away from the body (front view)
+  // upper arms nearly plumb so the elbows sit by the ribs; forearms angle out a touch more
+  L: { out: 1.2, foreOut: 4, fwd: 3, elbow: 10, twist: 0 },
+  R: { out: 2.2, foreOut: 5, fwd: 1.5, elbow: 13, twist: 0 },
 };
 // curl per joint [base, middle, tip]: more toward the pinky, little at the tip
 const CURL: Record<"index" | "middle" | "ring" | "pinky", [number, number, number]> = {
@@ -49,6 +51,8 @@ const CURL: Record<"index" | "middle" | "ring" | "pinky", [number, number, numbe
   pinky: [17, 23, 10],
 };
 const THUMB: [number, number, number] = [4, 10, 9];
+// full crouch (crouch = 1): thigh forward, shin back relative to it
+export const JUMP = { thigh: 38, shin: 66 };
 const CURL_AXIS = new THREE.Vector3(1, 0, 0); // local hinge axis of the finger bones
 const CURL_SIGN = 1;
 
@@ -167,7 +171,10 @@ export function createPoser(scene: THREE.Object3D) {
     return out.set(0, 1, 0).applyQuaternion(qr).applyQuaternion(qsInv);
   };
 
-  const update = (t: number) => {
+  /** Extra motion layered on top of the idle pose (the tap-to-jump timeline drives these). */
+  type Motion = { crouch: number; arms: number };
+
+  const update = (t: number, motion?: Motion) => {
     for (const o of bones) o.quaternion.copy(o.userData.rest as THREE.Quaternion);
     scene.updateMatrixWorld();
     toScene.copy(scene.matrixWorld).invert();
@@ -263,6 +270,8 @@ export function createPoser(scene: THREE.Object3D) {
       rot(L.arm, S, -h * cap((A.fwd + 0.8 * drift * s) * DEG - leanDown(v)));
       v.subVectors(at(L.hand, p2), at(L.fore, p1));
       rot(L.fore, S, -h * cap((A.elbow + 1.5 * drift * s) * DEG - leanDown(v)));
+      v.subVectors(at(L.hand, p2), at(L.fore, p1));
+      rot(L.fore, F, s * h * cap(A.foreOut * DEG - outward(v, s)));
       if (L.hand && A.twist) {
         v.subVectors(at(L.hand, p2), at(L.fore, p1)).normalize();
         rot(L.fore, v, A.twist * DEG * s);
@@ -278,6 +287,20 @@ export function createPoser(scene: THREE.Object3D) {
         });
       });
       L.thumb.forEach((bone, j) => rotLocal(bone, CURL_AXIS, CURL_SIGN * THUMB[j] * DEG));
+    }
+
+    // ---- jump: crouch folds hips, knees and ankles; arms swing back then up ----
+    if (motion && (motion.crouch || motion.arms)) {
+      const c = motion.crouch;
+      for (const L of [b.L, b.R]) {
+        rot(L.thigh, S, -h * c * JUMP.thigh * DEG);
+        rot(L.shin, S, h * c * JUMP.shin * DEG);
+        rot(L.foot, S, -h * c * (JUMP.shin - JUMP.thigh) * DEG);
+        rot(L.arm, S, h * motion.arms * DEG);
+      }
+      rot(b.spine1, S, h * c * 16 * DEG);
+      rot(b.chest, S, h * c * 6 * DEG);
+      rot(b.neck, S, -h * c * 12 * DEG);
     }
   };
 

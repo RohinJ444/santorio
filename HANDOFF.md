@@ -17,7 +17,7 @@ account, and keep WindBorne data out of it.
 
 | Screen | Route | State |
 | --- | --- | --- |
-| Body (home) | `/` | Hologram body, callouts, goals strip, greeting. Mind is intentionally inactive. |
+| Body (home) | `/` | Hologram body with callouts (Mind locked), energy balance / steps / water tiles, greeting. Scrolls into an insights grid. Drag or swipe sideways to spin; tap the body to make it jump, tap the gut for Nutrition. |
 | Training | `/workout` | Day view with sessions, set logging sheet, history by setup. |
 | Nutrition | `/diet` | Day view with totals, meals, meal-prep portion and ingredient edits, add-food sheet. |
 | Settings | `/settings` | Profile, weigh-ins, BMR/TDEE, goals. |
@@ -38,7 +38,13 @@ All data is **mock and in memory**. It resets on reload.
   - Weight is a log (`WeighIn[]`), not a setting.
 - **Energy.** `src/lib/energy.ts` computes BMR with Mifflin–St Jeor. With sex unset, it uses the midpoint constant. TDEE is BMR × an activity factor and is shown as an estimate (`≈`, dashed underline) everywhere.
 
+## Home insights (`src/components/insights/`)
+
+`Insights.tsx` holds a registry (`INSIGHTS`) of tiles: id, span (half or full width) and a render function over shared data from `src/lib/insights.ts`. Add, remove or reorder tiles by editing the registry. Charts are small SVG components in `charts.tsx`. Days without logged intake use seeded sample values, which are marked and noted in the tile.
+
 ## The 3D stage (`src/components/stage/`)
+
+- Gestures come from the DOM layer above the canvas (`gestures.ts`). The home hero has `touch-action: pan-y`, so vertical pans scroll natively, sideways drags spin the body, and still taps are raycast through `anchors.pick`. Tap-to-jump is a keyframed crouch, air and landing timeline in `Body.tsx` that drives extra pose motion.
 
 - `Body.tsx`
   - Loads `public/models/body.glb` and normalizes it to 1.8 m tall.
@@ -46,7 +52,7 @@ All data is **mock and in memory**. It resets on reload.
   - Places the procedural organs on the skeleton.
   - Projects anchor points for the DOM callouts every frame through `anchors.ts`. The callouts then move via `setAttribute` and transforms, with no React render per frame.
 - `subdivide.ts`: one level of Loop subdivision on the skinned body at load (skin weights blended), so the low-poly base mesh reads as a smooth silhouette.
-- `pose.ts`: a procedural build and idle pose. It widens the shoulders once by moving the arm joints out, then each frame applies: a shoulder-width stance, loose dropped shoulders, relaxed arms, a light weight shift, breathing and a head look-around. Posture is measured, not hand-set: each frame it aligns legs, torso, neck and head to a side-view plumb line and sets arm and forearm angles by measurement. Targets are the constants at the top of `pose.ts`. Dev console helpers: `__rig.lock = <radians>` freezes the turntable (front is `-Math.PI / 2`), `__rig.shot = { pos, look }` overrides the camera, and `__pose()` prints segment leans, plumb offsets and bone directions in body axes. It resets bones to rest each frame and layers rotations in body axes measured from the skeleton. The model's bundled animation clips aren't used.
+- `pose.ts`: a procedural build and idle pose. It widens the shoulders once by moving the arm joints out, then each frame applies: a shoulder-width stance, loose dropped shoulders, relaxed arms, a light weight shift, breathing and a head look-around. Posture is measured, not hand-set: each frame it aligns legs, torso, neck and head to a side-view plumb line and sets arm and forearm angles by measurement. Targets are the constants at the top of `pose.ts`. Dev console helpers: `__rig.lock = <radians>` freezes the turntable (front is `-Math.PI / 2`), `__rig.shot = { pos, look }` overrides the camera, `__rig.jumpScrub = 0.45` holds the jump at a moment, and `__pose()` prints segment leans, plumb offsets and bone directions in body axes. It resets bones to rest each frame and layers rotations in body axes measured from the skeleton. The model's bundled animation clips aren't used.
 - `materials.ts`: GLSL for the hologram (scan rings, meridians, fresnel rim, entrance reveal). It includes three's skinning chunks, so it works on the skinned mesh. It also has the organ glow and the floor glow.
 - `organs.ts`: brain and digestive tract built procedurally, so the only downloaded asset is the body.
 - `Stage.tsx`

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { fmtInt } from "@/lib/energy";
+import { Lock } from "../ui/icons";
 import { anchors, subscribe } from "../stage/anchors";
 import s from "./home.module.css";
 
@@ -15,7 +16,7 @@ const clamp = (v: number, a: number, b: number) => Math.min(Math.max(v, a), b);
 const LAYOUT: Record<Key, { side: Side; dy: number }> = {
   mind: { side: "right", dy: -58 },
   qin: { side: "left", dy: 26 },
-  qout: { side: "right", dy: -64 },
+  qout: { side: "right", dy: -6 },
 };
 
 /** Position a label in its side column and draw an elbow from the anchor to it. */
@@ -84,7 +85,7 @@ export default function Callouts({ intro, qin, qout, onOpen }: Props) {
             </feMerge>
           </filter>
         </defs>
-        <g data-wire="mind" className={`${s.wire} ${s.off}`} style={d(1.7)}>
+        <g data-wire="mind" className={`${s.wire} ${s.locked}`} style={d(1.7)}>
           <path pathLength={1} />
           <circle r={7} className={s.halo} />
           <circle r={3} />
@@ -101,9 +102,11 @@ export default function Callouts({ intro, qin, qout, onOpen }: Props) {
         </g>
       </svg>
 
-      <div data-label="mind" className={`${s.label} ${s.labelOff}`} style={d(1.9)} aria-disabled="true">
+      <div data-label="mind" className={`${s.label} ${s.labelLocked}`} style={d(1.9)} aria-label="Mind (locked)">
         <div className={s.labelKey}>Mind</div>
-        <div className={s.labelVal}>—</div>
+        <div className={s.labelVal}>
+          <Lock size={14} />
+        </div>
       </div>
 
       <button
@@ -130,7 +133,7 @@ export default function Callouts({ intro, qin, qout, onOpen }: Props) {
       >
         <div className={s.labelKey}>
           Q<sub>out</sub>
-          <span className={s.labelHint}>output</span>
+          <span className={s.labelHint}>TDEE</span>
         </div>
         <div className={s.labelVal}>
           <span className={s.approx}>≈</span>

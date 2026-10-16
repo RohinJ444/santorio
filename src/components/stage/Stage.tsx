@@ -1,17 +1,17 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Suspense, useMemo, useRef, type PointerEvent } from "react";
+import { Suspense, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { Route } from "../routes";
 import { rig } from "./anchors";
-import Body, { type Part } from "./Body";
+import Body from "./Body";
 
 type Shot = { pos: [number, number, number]; look: [number, number, number] };
 
 // Camera per route. Leaving home pushes into the body region that owns the view.
 const SHOTS: Record<Route, Shot> = {
-  home: { pos: [0, 1.05, 6.1], look: [0, 0.86, 0] },
+  home: { pos: [0, 1.11, 6.1], look: [0, 0.92, 0] },
   workout: { pos: [0.15, 1.3, 2.3], look: [0, 1.18, 0] },
   diet: { pos: [0.05, 1.08, 1.05], look: [0, 1.06, 0] },
   settings: { pos: [0, 1.5, 9.5], look: [0, 1.2, 0] },
@@ -40,41 +40,13 @@ function CameraRig({ route }: { route: Route }) {
   return null;
 }
 
-type Props = { route: Route; intro: boolean; onTap: (part: Part) => void };
+type Props = { route: Route; intro: boolean };
 
-export default function Stage({ route, intro, onTap }: Props) {
-  const drag = useRef<{ startX: number; lastX: number; lastT: number } | null>(null);
-
-  const onDown = (e: PointerEvent) => {
-    if (route !== "home") return;
-    drag.current = { startX: e.clientX, lastX: e.clientX, lastT: performance.now() };
-  };
-  const onMove = (e: PointerEvent) => {
-    const d = drag.current;
-    if (!d) return;
-    if (!rig.dragging && Math.abs(e.clientX - d.startX) > 6) rig.dragging = true;
-    if (!rig.dragging) return;
-    const now = performance.now();
-    const turn = (e.clientX - d.lastX) * 0.009;
-    rig.dragDelta += turn;
-    rig.velocity = THREE.MathUtils.clamp(turn / Math.max((now - d.lastT) / 1000, 0.008), -5, 5);
-    d.lastX = e.clientX;
-    d.lastT = now;
-  };
-  const onUp = () => {
-    drag.current = null;
-    rig.dragging = false;
-  };
-
+/** The 3D layer. Gestures (spin, tap) come from the DOM layer above it via ./gestures. */
+export default function Stage({ route, intro }: Props) {
   return (
-    <div
-      style={{ position: "absolute", inset: 0, touchAction: "none" }}
-      onPointerDown={onDown}
-      onPointerMove={onMove}
-      onPointerUp={onUp}
-      onPointerCancel={onUp}
-      onPointerLeave={onUp}
-    >
+    // --home-scroll dims the body as the home screen scrolls to insights
+    <div style={{ position: "absolute", inset: 0, opacity: "calc(1 - var(--home-scroll, 0) * 0.78)" }}>
       <Canvas
         dpr={[1, 2]}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
@@ -82,7 +54,7 @@ export default function Stage({ route, intro, onTap }: Props) {
         frameloop={route === "home" ? "always" : "demand"}
       >
         <Suspense fallback={null}>
-          <Body route={route} intro={intro} onTap={onTap} />
+          <Body route={route} intro={intro} />
         </Suspense>
         <CameraRig route={route} />
       </Canvas>

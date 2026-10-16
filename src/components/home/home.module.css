@@ -8,44 +8,126 @@
 
 .top {
   position: absolute;
-  top: calc(var(--safe-top) + 12px);
-  left: 18px;
-  right: 12px;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: calc(var(--safe-top) + 12px) 12px 12px 18px;
+  pointer-events: none;
+  transition: background 0.3s;
+}
+
+.top > * {
   pointer-events: auto;
+}
+
+.overlay[data-scrolled="1"] .top {
+  background: linear-gradient(to bottom, rgba(3, 6, 12, 0.95) 60%, rgba(3, 6, 12, 0));
+}
+
+/* ---------- scroll layers ---------- */
+
+.scroller {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  pointer-events: auto;
+}
+
+.scroller::-webkit-scrollbar {
+  display: none;
+}
+
+/* First screen: transparent over the body. Vertical pans scroll; sideways drags spin. */
+.hero {
+  position: relative;
+  height: 100%;
+  touch-action: pan-y;
+  cursor: grab;
+}
+
+.hero:active {
+  cursor: grabbing;
+}
+
+.fadeOnScroll {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: calc(1 - var(--home-scroll, 0) * 1.8);
+}
+
+.overlay[data-scrolled="1"] .label {
+  pointer-events: none;
+}
+
+.more {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  opacity: calc(1 - var(--home-scroll, 0) * 4);
+  animation: nudge 2.4s ease-in-out infinite;
+}
+
+@keyframes nudge {
+  50% {
+    transform: translateY(3px);
+  }
+}
+
+.insights {
+  position: relative;
+  padding: 18px 12px calc(var(--safe-bottom) + 40px);
+  background: linear-gradient(to bottom, rgba(3, 6, 12, 0) 0, rgba(3, 6, 12, 0.88) 80px, var(--bg) 240px);
+}
+
+.insightsHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0 4px 10px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.insightsSub {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
 }
 
 .date {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.16em;
+  align-items: baseline;
+  gap: 7px;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-3);
+  color: #7e8fa8;
 }
 
 .date b {
   color: var(--text);
   font-weight: 500;
-}
-
-.live {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--out);
-  box-shadow: 0 0 10px var(--out);
-  animation: breathe 2.8s ease-in-out infinite;
-}
-
-@keyframes breathe {
-  50% {
-    opacity: 0.35;
-  }
 }
 
 .iconBtn {
@@ -111,8 +193,9 @@
     pulse 2.6s ease-in-out calc(var(--d) + 0.6s) infinite;
 }
 
-.wire.off {
-  --c: var(--off);
+.wire.locked {
+  --c: var(--mind);
+  opacity: 0.55;
 }
 
 @keyframes draw {
@@ -224,23 +307,25 @@ button.label:active {
   margin-right: 1px;
 }
 
-.labelOff {
-  --c: var(--off);
+/* Mind: present but locked. Its own violet, kept quiet. */
+.labelLocked {
+  --c: var(--mind);
   min-width: 0;
-  box-shadow: none;
-  background: rgba(5, 11, 22, 0.5);
+  background: rgba(10, 8, 26, 0.6);
+  border-color: color-mix(in srgb, var(--mind) 32%, transparent);
+  box-shadow: 0 0 22px -10px var(--mind);
 }
 
-.labelOff .labelKey {
+.labelLocked .labelKey {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   font-size: 11px;
-  text-shadow: none;
+  opacity: 0.85;
 }
 
-.labelOff .labelVal {
-  color: var(--off);
-  font-size: 13px;
+.labelLocked .labelVal {
+  display: flex;
+  color: color-mix(in srgb, var(--mind) 70%, var(--text-3));
 }
 
 /* ---------- bottom HUD ---------- */
@@ -249,38 +334,7 @@ button.label:active {
   position: absolute;
   left: 12px;
   right: 12px;
-  bottom: calc(var(--safe-bottom) + 12px);
-  pointer-events: auto;
-}
-
-.equation {
-  display: flex;
-  justify-content: center;
-  align-items: baseline;
-  gap: 5px;
-  margin-bottom: 10px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  color: var(--text-3);
-}
-
-.equation sub {
-  font-size: 8px;
-}
-
-.equation strong {
-  font-size: 14px;
-  font-weight: 500;
-  margin-left: 2px;
-}
-
-.neg {
-  color: var(--text);
-}
-
-.pos {
-  color: var(--warn);
+  bottom: calc(var(--safe-bottom) + 10px);
 }
 
 .tiles {
@@ -309,17 +363,29 @@ button.tile:active {
 .tileKey {
   display: flex;
   justify-content: space-between;
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.16em;
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-3);
 }
 
-.tap {
-  letter-spacing: 0.04em;
+.tight {
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.tile[data-tone="out"] {
+  --c: var(--out);
+}
+
+.tile[data-tone="warn"] {
+  --c: var(--warn);
+}
+
+.tone {
   color: var(--c);
-  opacity: 0.8;
 }
 
 .tileVal {
@@ -338,8 +404,8 @@ button.tile:active {
 
 .tileSub {
   margin-top: 6px;
-  font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-family: var(--font-sans);
+  font-size: 10.5px;
   color: var(--text-3);
   white-space: nowrap;
 }
@@ -369,34 +435,40 @@ button.tile:active {
 
 /* ---------- greeting (behind the figure) ---------- */
 
+.greetFade {
+  opacity: calc(1 - var(--home-scroll, 0) * 1.6);
+}
+
 .greeting {
   position: absolute;
   left: 0;
   right: 0;
-  top: calc(var(--safe-top) + 74px);
+  top: calc(var(--safe-top) + 90px);
   text-align: center;
   pointer-events: none;
   user-select: none;
 }
 
+/* same voice as the date in the top bar, a size up */
 .greetSmall {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.32em;
+  font-family: var(--font-sans);
+  font-size: 17px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-3);
+  color: #7e8fa8;
 }
 
 .greetBig {
-  margin-top: 2px;
+  margin-top: 4px;
   white-space: nowrap;
-  font-size: clamp(76px, 27vw, 150px);
-  font-weight: 700;
-  line-height: 0.92;
-  letter-spacing: -0.05em;
+  font-family: var(--font-display);
+  font-size: clamp(64px, 22vw, 122px);
+  font-weight: 600;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
   color: transparent;
-  background: linear-gradient(to bottom, rgba(140, 215, 255, 0.2), rgba(63, 224, 255, 0.03) 85%);
+  background: linear-gradient(to bottom, rgba(140, 215, 255, 0.32), rgba(63, 224, 255, 0.05) 85%);
   -webkit-background-clip: text;
   background-clip: text;
-  -webkit-text-stroke: 1px rgba(63, 224, 255, 0.14);
+  -webkit-text-stroke: 1px rgba(63, 224, 255, 0.2);
 }

@@ -79,3 +79,10 @@ export const Drop = ({ size, ...p }: P) => (
     <path d="M12 3s6 6.4 6 11a6 6 0 0 1-12 0c0-4.6 6-11 6-11z" />
   </svg>
 );
+
+export const Lock = ({ size, ...p }: P) => (
+  <svg {...base(size)} {...p}>
+    <rect x="5" y="11" width="14" height="9.5" rx="2.2" />
+    <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+  </svg>
+);

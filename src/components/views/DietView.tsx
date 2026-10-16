@@ -49,18 +49,20 @@ export default function DietView() {
             </div>
             <div className={v.balance}>
               <span>
-                Q<sub>out</sub> <span className={v.est}>≈{fmtInt(st.tdee)}</span>
+                TDEE <span className={v.est}>≈{fmtInt(st.tdee)}</span>
               </span>
               <span>
-                ΔU{" "}
+                Energy balance{" "}
                 <b>
                   {du < 0 ? "−" : "+"}
                   {fmtInt(Math.abs(du))}
                 </b>{" "}
-                kcal
+                kcal {du < 0 ? "deficit" : "surplus"}
               </span>
             </div>
           </div>
+
+          <Hydration date={st.date} />
 
           {(day?.meals ?? []).map((m) => (
             <MealCard key={m.id} meal={m} date={st.date} />
@@ -80,6 +82,36 @@ export default function DietView() {
 
       <AnimatePresence>{adding && <AddFoodSheet key="add" onClose={() => setAdding(false)} />}</AnimatePresence>
     </motion.div>
+  );
+}
+
+function Hydration({ date }: { date: string }) {
+  const st = useStore();
+  const water = st.days[date]?.waterL ?? 0;
+  const goal = st.goals.waterL;
+  return (
+    <div className={v.card} style={{ ["--c" as string]: "#7cc4ff" }}>
+      <div className={v.mealHead}>
+        <div className={v.kicker}>Water</div>
+        <div className={v.goal}>
+          {water.toFixed(2).replace(/0$/, "")} / {goal} L
+        </div>
+      </div>
+      <div className={v.meter}>
+        <i style={{ width: `${Math.min(100, (water / goal) * 100)}%` }} />
+      </div>
+      <div className={v.waterBtns}>
+        <button className={v.toggle} onClick={() => st.addWater(date, -0.25)} disabled={water <= 0} aria-label="Remove 250 ml">
+          <Minus size={14} /> 250 ml
+        </button>
+        <button className={v.toggle} onClick={() => st.addWater(date, 0.25)}>
+          <Plus size={14} /> 250 ml
+        </button>
+        <button className={v.toggle} onClick={() => st.addWater(date, 0.5)}>
+          <Plus size={14} /> 500 ml
+        </button>
+      </div>
+    </div>
   );
 }
 
