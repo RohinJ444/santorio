@@ -101,8 +101,7 @@ export default function HomeOverlay({ intro }: Props) {
               </Link>
             </div>
             <div className={s.more} aria-hidden>
-              Insights
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 9l6 6 6-6" />
               </svg>
             </div>
