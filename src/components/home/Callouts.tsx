@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { Brain, Dumbbell, Utensils } from "lucide-react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Lock } from "../ui/icons";
 import { anchors, subscribe } from "../stage/anchors";
 import s from "./home.module.css";
@@ -52,6 +53,25 @@ function place(host: HTMLElement, key: Key, top: number, bottom: number) {
   }
 }
 
+// Each callout alternates an icon (shown first on load) with its data: 8 s each, a quick ripple top to bottom.
+const FLIP_STAGGER = 0.25;
+const ICON = { size: 30, strokeWidth: 1.5 };
+
+/** Data and icon stacked in the same box (the data sets the size, so nothing jumps). */
+function Flip({ icon, delay, children }: { icon: ReactNode; delay: number; children: ReactNode }) {
+  const style = { ["--fd" as string]: `${delay}s` };
+  return (
+    <>
+      <div className={s.flipData} style={style}>
+        {children}
+      </div>
+      <div className={s.flipIcon} style={style} aria-hidden>
+        {icon}
+      </div>
+    </>
+  );
+}
+
 type Props = { intro: boolean; qin: number; qout: number; onOpen: (r: "diet" | "workout") => void };
 
 /** HUD callouts: dot on the body, elbow line, label in a stable side column (easy to tap while the body turns). */
@@ -74,6 +94,7 @@ export default function Callouts({ intro, qin, qout, onOpen }: Props) {
   );
 
   const d = (n: number) => ({ ["--d" as string]: `${intro ? n : 0.05}s` });
+  const flip = (i: number) => (intro ? 2 : 0) + i * FLIP_STAGGER; // after the intro, then a ripple
 
   return (
     <div ref={root} className={s.callouts}>
@@ -105,10 +126,12 @@ export default function Callouts({ intro, qin, qout, onOpen }: Props) {
       </svg>
 
       <div data-label="mind" className={`${s.label} ${s.labelLocked}`} style={d(1.9)} aria-label="Mind (locked)">
-        <div className={s.labelKey}>Mind</div>
-        <div className={s.labelVal}>
-          <Lock size={14} />
-        </div>
+        <Flip icon={<Brain {...ICON} />} delay={flip(0)}>
+          <div className={s.labelKey}>Mind</div>
+          <div className={s.labelVal}>
+            <Lock size={14} />
+          </div>
+        </Flip>
       </div>
 
       <button
@@ -117,14 +140,16 @@ export default function Callouts({ intro, qin, qout, onOpen }: Props) {
         style={{ ...d(2.15), ["--c" as string]: "var(--in)" }}
         onClick={() => onOpen("diet")}
       >
-        <div className={s.labelKey}>
-          Q<sub>in</sub>
-          <span className={s.labelHint}>intake</span>
-        </div>
-        <div className={s.labelVal}>
-          {kcal(qin)}
-          <small>kcal</small>
-        </div>
+        <Flip icon={<Utensils {...ICON} />} delay={flip(1)}>
+          <div className={s.labelKey}>
+            Q<sub>in</sub>
+            <span className={s.labelHint}>intake</span>
+          </div>
+          <div className={s.labelVal}>
+            {kcal(qin)}
+            <small>kcal</small>
+          </div>
+        </Flip>
       </button>
 
       <button
@@ -133,15 +158,17 @@ export default function Callouts({ intro, qin, qout, onOpen }: Props) {
         style={{ ...d(2.4), ["--c" as string]: "var(--out)" }}
         onClick={() => onOpen("workout")}
       >
-        <div className={s.labelKey}>
-          Q<sub>out</sub>
-          <span className={s.labelHint}>TDEE</span>
-        </div>
-        <div className={s.labelVal}>
-          <span className={s.approx}>≈</span>
-          {kcal(qout)}
-          <small>kcal</small>
-        </div>
+        <Flip icon={<Dumbbell {...ICON} />} delay={flip(2)}>
+          <div className={s.labelKey}>
+            Q<sub>out</sub>
+            <span className={s.labelHint}>TDEE</span>
+          </div>
+          <div className={s.labelVal}>
+            <span className={s.approx}>≈</span>
+            {kcal(qout)}
+            <small>kcal</small>
+          </div>
+        </Flip>
       </button>
     </div>
   );

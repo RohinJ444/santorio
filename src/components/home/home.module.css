@@ -239,6 +239,79 @@
     background 0.2s;
 }
 
+/* icon <-> data flip inside each callout (16 s cycle: 8 s icon first, then 8 s data; 0.3 s flips) */
+.label {
+  perspective: 320px;
+}
+
+.flipData,
+.flipIcon {
+  animation-duration: 16s;
+  animation-delay: var(--fd, 0s);
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+  animation-timing-function: ease-in-out;
+  backface-visibility: hidden;
+}
+
+.flipData {
+  animation-name: flipData;
+}
+
+.flipIcon {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--c);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--c) 60%, transparent));
+  animation-name: flipIcon;
+}
+
+@keyframes flipIcon {
+  0%,
+  48% {
+    opacity: 1;
+    transform: rotateX(0deg);
+  }
+  50%,
+  98% {
+    opacity: 0;
+    transform: rotateX(80deg);
+  }
+  100% {
+    opacity: 1;
+    transform: rotateX(0deg);
+  }
+}
+
+@keyframes flipData {
+  0%,
+  48% {
+    opacity: 0;
+    transform: rotateX(-80deg);
+  }
+  50%,
+  98% {
+    opacity: 1;
+    transform: rotateX(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: rotateX(-80deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flipData {
+    animation: none !important;
+  }
+  .flipIcon {
+    animation: none !important;
+    opacity: 0;
+  }
+}
+
 button.label:active {
   background: color-mix(in srgb, var(--c) 18%, rgba(5, 11, 22, 0.8));
 }
