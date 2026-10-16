@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { fmtInt } from "@/lib/energy";
 import { Lock } from "../ui/icons";
 import { anchors, subscribe } from "../stage/anchors";
 import s from "./home.module.css";
 
 type Side = "left" | "right";
 type Key = "mind" | "qin" | "qout";
+
+// No thousands separator: in mono the comma takes a full-width cell and opens a gap.
+const kcal = (n: number) => String(Math.round(n));
 
 const PAD = 14;
 const clamp = (v: number, a: number, b: number) => Math.min(Math.max(v, a), b);
@@ -120,7 +122,7 @@ export default function Callouts({ intro, qin, qout, onOpen }: Props) {
           <span className={s.labelHint}>intake</span>
         </div>
         <div className={s.labelVal}>
-          {fmtInt(qin)}
+          {kcal(qin)}
           <small>kcal</small>
         </div>
       </button>
@@ -137,7 +139,7 @@ export default function Callouts({ intro, qin, qout, onOpen }: Props) {
         </div>
         <div className={s.labelVal}>
           <span className={s.approx}>≈</span>
-          {fmtInt(qout)}
+          {kcal(qout)}
           <small>kcal</small>
         </div>
       </button>
