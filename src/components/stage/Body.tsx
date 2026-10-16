@@ -22,6 +22,9 @@ const HEIGHT = 1.8;
 const SMOOTH_LEVELS = 1;
 const RING = 0.44;
 const COLORS = { body: "#3fe0ff", gut: "#9dff6a", brain: "#a49be0" };
+// Heading at load, as the viewer sees it: 0 faces the camera, negative turns toward
+// the viewer's left. -45° spawns a three-quarter view turned to the figure's right.
+const SPAWN_HEADING = -Math.PI / 4;
 // organ placement relative to the skeleton (tuned by eye)
 const BRAIN_UP = 0.5; // fraction of skull-base→crown
 const BRAIN_SCALE = 0.6;
@@ -66,6 +69,11 @@ export default function Body({ route, intro }: Props) {
   const { camera, size, gl } = useThree();
   const proxies = useRef<THREE.Object3D[]>([]);
   const pose = useMemo(() => createPoser(gltf.scene), [gltf.scene]);
+  // spin needed to turn the rig's measured forward onto the spawn heading (camera looks down -z)
+  const spawnAngle = useMemo(() => {
+    const f = new THREE.Vector3(0, 0, 1).applyQuaternion(pose.bodyFrame);
+    return SPAWN_HEADING - Math.atan2(f.x, f.z);
+  }, [pose]);
 
   const mats = useMemo(
     () => ({
@@ -154,7 +162,10 @@ export default function Body({ route, intro }: Props) {
 
   useFrame((state, dt) => {
     const t = state.clock.elapsedTime;
-    if (start.current === null) start.current = t;
+    if (start.current === null) {
+      start.current = t;
+      spin.current.rotation.y = spawnAngle;
+    }
     const since = t - start.current;
     const home = route === "home";
 
