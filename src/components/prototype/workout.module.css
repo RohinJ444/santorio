@@ -1,0 +1,117 @@
+.workoutPage { --workout-accent: var(--out, #3fe0ff); color: var(--text); }
+.pageHeading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+.pageHeading h1 { font-family: var(--font-display); font-size: 30px; font-weight: 500; }
+.eyebrow { color: var(--workout-accent); font: 11px var(--font-mono); letter-spacing: .12em; margin-bottom: 3px; }
+.tabs { display: flex; gap: 5px; padding: 5px; background: rgba(5, 13, 24, .85); border: 1px solid var(--line); border-radius: 14px; margin: 16px 0 22px; }
+.tabs button { flex: 1; min-height: 44px; border-radius: 10px; color: var(--text-2); font-size: 14px; }
+.tabs button.activeTab { color: var(--workout-accent); background: rgba(63, 224, 255, .11); }
+.sectionHeading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 16px 0 12px; }
+.sectionHeading h2, .stack h2 { font-size: 20px; font-weight: 550; }
+.sectionHeading h2 > span { color: var(--text-3); margin-left: 5px; font: 14px var(--font-mono); }
+.stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.actionRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.primaryButton, .smallButton, .dangerButton, .locationButton, .addExerciseButton, .finishButton { min-height: 44px; border: 1px solid var(--line-strong); border-radius: 11px; padding: 10px 13px; font-size: 13px; line-height: 1.3; }
+.primaryButton { color: var(--workout-accent, var(--out)); background: rgba(63, 224, 255, .10); border-color: rgba(63, 224, 255, .3); font-weight: 550; }
+.smallButton { color: var(--text-2); background: rgba(23, 38, 58, .35); }
+.dangerButton { color: #ffaaaa; border-color: rgba(255, 130, 130, .17); }
+.smallButton:disabled, .primaryButton:disabled { opacity: .4; cursor: default; }
+.locationButton { display: inline-flex; align-items: center; justify-content: space-between; gap: 14px; color: var(--text-2); text-align: left; }
+.locationButton span { color: var(--workout-accent, var(--out)); }
+.addExerciseButton { display: block; width: 100%; border-style: dashed; color: var(--workout-accent); margin: 16px 0; }
+.finishButton { display: block; width: 100%; margin: 20px 0 8px; color: var(--text-2); }
+.textButton { min-height: 36px; padding: 6px 8px; color: var(--text-2); font-size: 12px; }
+.iconButton { min-width: 44px; min-height: 44px; color: var(--text-2); font-size: 22px; }
+.sessionTabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; scroll-snap-type: x proximity; margin-bottom: 6px; }
+.sessionTab { flex: 0 0 auto; max-width: 260px; min-width: 180px; text-align: left; padding: 12px 14px; border-radius: 13px; border: 1px solid var(--line); background: rgba(8, 16, 30, .7); scroll-snap-align: start; }
+.sessionTab strong { display: block; font-size: 14px; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sessionTab span { display: block; font-size: 11px; color: var(--text-2); margin-top: 5px; }
+.sessionTab.sessionSelected { border-color: rgba(63, 224, 255, .4); background: rgba(63, 224, 255, .07); }
+.sessionCard, .exercise, .routineCard, .insightCard, .emptyCard { border: 1px solid var(--line); border-radius: 17px; background: rgba(7, 16, 29, .88); padding: 18px; margin-bottom: 16px; min-width: 0; }
+.sessionCard { display: flex; flex-direction: column; gap: 14px; }
+.sessionStats { display: flex; gap: 22px; padding-top: 3px; color: var(--text-2); font-size: 12px; }
+.sessionStats b { color: var(--text); font: 20px var(--font-mono); margin-right: 5px; }
+.exercise { padding: 16px; }
+.exerciseHeader { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+.grow { flex: 1; min-width: 0; }
+.exercise h3 { font-size: 17px; line-height: 1.35; font-weight: 550; }
+.meta { color: var(--text-2); font-size: 12px; line-height: 1.55; margin-top: 4px; }
+.counter { font: 18px var(--font-mono); color: var(--workout-accent); white-space: nowrap; margin-top: 2px; }
+.counter small { color: var(--text-3); font-size: 10px; }
+.badge { color: var(--text-2); background: rgba(150, 190, 230, .07); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; font: 10px var(--font-mono); white-space: nowrap; }
+.assistance { color: var(--warn); font-size: 11px; line-height: 1.5; padding: 7px 0; }
+.details { margin: 9px 0; min-width: 0; }
+.details > summary { min-height: 44px; cursor: pointer; color: var(--text-2); font-size: 12px; padding: 12px 0; list-style-position: inside; }
+.details > summary span { color: var(--text-3); margin-left: 7px; font-size: 11px; overflow-wrap: anywhere; }
+.details[open] > summary { color: var(--workout-accent, var(--out)); }
+.detailsBody { display: flex; flex-direction: column; gap: 14px; padding: 8px 0 14px; }
+.field { display: flex; flex-direction: column; gap: 7px; font-size: 12px; color: var(--text-2); min-width: 0; }
+.field input, .field select { width: 100%; max-width: 100%; min-width: 0; min-height: 44px; padding: 10px 11px; font-size: 16px; color: var(--text); background: #0a1525; border: 1px solid var(--line-strong); border-radius: 9px; }
+.field select { appearance: auto; }
+.numberGrid, .sideGrid, .cardioGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.targetGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.targetGrid > *, .numberGrid > *, .cardioGrid > *, .sideGrid > * { min-width: 0; }
+.targetGrid input, .numberGrid input, .cardioGrid input, .sideGrid input { min-width: 0; width: 100%; }
+.sideColumn { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+.sideLabel { color: var(--text-2); font: 11px var(--font-mono); text-transform: uppercase; letter-spacing: .08em; }
+.historyLine { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.historyLine strong { display: block; font-size: 11px; font-weight: 500; color: var(--text-2); margin-bottom: 5px; }
+.historyLine p { color: var(--text-2); font: 11px/1.65 var(--font-mono); overflow-wrap: anywhere; }
+.setList { display: flex; flex-direction: column; gap: 9px; padding: 12px 0 18px; }
+.setRow { min-width: 0; border: 1px solid var(--line); border-radius: 12px; padding: 10px 11px 7px; background: rgba(13, 26, 43, .5); }
+.setRow.ready { border-color: rgba(63, 224, 255, .2); }
+.setLegend { padding: 0 5px; color: var(--text-2); font: 11px var(--font-mono); }
+.setLegend span { color: var(--text-3); margin-left: 6px; }
+.setFooter { display: flex; justify-content: space-between; align-items: center; min-height: 34px; gap: 4px; margin-top: 4px; }
+.recorded { color: #81cbb7; font-size: 10px; }
+.setFooter .hint { font-size: 10px; margin: 0; }
+.setExtras { padding-top: 8px; padding-bottom: 6px; display: flex; flex-direction: column; gap: 13px; border-top: 1px solid var(--line); }
+.extraSegment { padding: 5px 0 13px; margin-top: 9px; border-top: 1px dashed var(--line-strong); display: flex; flex-direction: column; gap: 9px; }
+.segmentHeading { display: flex; justify-content: space-between; align-items: center; color: var(--warn); font-size: 11px; }
+.loggingHint, .hint { font-size: 12px; line-height: 1.6; color: var(--text-2); }
+.loggingHint { margin: 0 2px 17px; font-size: 11px; }
+.notice, .undo { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 13px; margin: 10px 0; color: var(--text-2); background: rgba(63, 224, 255, .06); border: 1px solid var(--line); border-radius: 11px; font-size: 12px; line-height: 1.5; }
+.undo button { padding: 10px; color: var(--out); min-height: 44px; }
+.warning { color: var(--warn); font-size: 12px; line-height: 1.6; }
+.empty { color: var(--text-2); padding: 16px 0; font-size: 13px; line-height: 1.6; }
+.emptyCard { text-align: center; padding: 32px 20px; color: var(--text-2); font-size: 13px; line-height: 1.6; }
+.emptyCard h3 { color: var(--text); font-size: 18px; margin-bottom: 8px; }
+.emptyCard button { margin-top: 18px; }
+.routineCard h3, .insightCard h3 { font-size: 16px; margin-bottom: 8px; font-weight: 550; }
+.routineCard .actionRow { margin-top: 14px; }
+.routineExercise { border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+.routineExercise h3 { font-size: 15px; }
+.choiceButton { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; text-align: left; padding: 13px 14px; min-height: 48px; border-radius: 12px; border: 1px solid var(--line); background: rgba(12, 26, 43, .7); }
+.choiceButton[aria-pressed=true] { border-color: rgba(63, 224, 255, .4); }
+.choiceButton strong { font-size: 14px; font-weight: 500; }
+.choiceButton > div > span { display: block; color: var(--text-2); font-size: 11px; margin-top: 5px; }
+.smallHeading { color: var(--text-2); font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: .05em; }
+.libraryList { display: flex; flex-direction: column; gap: 6px; }
+.libraryRow { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.librarySelect { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 5px; text-align: left; padding: 5px 0; min-height: 44px; }
+.librarySelect strong { font-size: 14px; font-weight: 550; }
+.librarySelect span, .librarySelect small { font-size: 11px; line-height: 1.5; color: var(--text-2); }
+.muscleField { min-width: 0; border: 1px solid var(--line); border-radius: 11px; padding: 10px; }
+.muscleField legend { padding: 0 5px; font-size: 12px; color: var(--text-2); }
+.muscleChoices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+.checkbox { display: flex; align-items: center; gap: 8px; min-height: 40px; font-size: 12px; color: var(--text-2); cursor: pointer; }
+.checkbox input { width: 17px; height: 17px; accent-color: var(--out); }
+.insightStats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.insightStats > div { padding: 16px; background: rgba(10, 23, 39, .85); border: 1px solid var(--line); border-radius: 12px; }
+.insightStats b { display: block; color: var(--out); font: 28px var(--font-mono); }
+.insightStats span { display: block; color: var(--text-2); font-size: 11px; margin-top: 6px; }
+.insightCard { margin-bottom: 0; }
+.insightCard > .field { margin-top: 14px; }
+.weekChart { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; padding: 20px 8px 3px; height: 185px; }
+.weekColumn { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; }
+.weekColumn b { font: 13px var(--font-mono); color: var(--out); }
+.weekColumn > span { font: 10px var(--font-mono); color: var(--text-2); }
+.barTrack { height: 105px; width: min(100%, 38px); display: flex; align-items: flex-end; background: rgba(63, 224, 255, .04); border-radius: 5px; overflow: hidden; }
+.barTrack > div { width: 100%; background: linear-gradient(0deg, rgba(63, 224, 255, .35), rgba(63, 224, 255, .8)); border-radius: 5px; }
+.muscleBar { display: grid; grid-template-columns: 80px 1fr 27px; gap: 10px; align-items: center; font-size: 12px; color: var(--text-2); margin-top: 15px; }
+.muscleBar > div { height: 6px; background: rgba(63, 224, 255, .08); border-radius: 4px; }
+.muscleBar i { display: block; height: 100%; background: rgba(63, 224, 255, .65); border-radius: 4px; }
+.muscleBar b { font: 12px var(--font-mono); text-align: right; color: var(--out); }
+.progressRow { width: 100%; display: flex; flex-direction: column; gap: 7px; padding: 14px 0; text-align: left; border-bottom: 1px solid var(--line); }
+.progressRow strong { font-size: 12px; font-weight: 500; }
+.progressRow span { font: 11px/1.65 var(--font-mono); color: var(--text-2); overflow-wrap: anywhere; }
+@media (max-width: 380px) { .pageHeading h1 { font-size: 26px; } .exercise { padding: 12px; } .sessionCard { padding: 14px; } .counter { font-size: 15px; } .counter small { font-size: 9px; } .targetGrid { gap: 5px; } .numberGrid, .sideGrid, .cardioGrid { gap: 8px; } }

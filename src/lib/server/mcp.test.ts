@@ -1,0 +1,17 @@
+import {describe,it,expect,vi} from 'vitest';
+vi.mock('server-only',()=>({}));
+import {WebStandardStreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
+import {createSantorioMcp} from './mcp';
+import type {SupabaseClient} from '@supabase/supabase-js';
+const ownerId='cd45c36d-071a-4da7-9e5d-6f656a589408';
+async function call(method:string,params:Record<string,unknown>,scopes=['nutrition:read'],db={} as SupabaseClient){
+ const server=createSantorioMcp({db,ownerId,scopes,clientId:'https://client.example/metadata.json'});
+ const transport=new WebStandardStreamableHTTPServerTransport({sessionIdGenerator:undefined,enableJsonResponse:true});await server.connect(transport);
+ try{const response=await transport.handleRequest(new Request('https://santorio.example/api/mcp',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json, text/event-stream','MCP-Protocol-Version':'2025-11-25'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})}));return await response.json();}finally{await server.close();}
+}
+describe('MCP transport and scoped tools',()=>{
+ process.env.APP_URL='https://santorio.example';
+ it('initializes using Streamable HTTP JSON',async()=>{const response=await call('initialize',{protocolVersion:'2025-11-25',capabilities:{},clientInfo:{name:'test',version:'1.0'}});expect(response.result.serverInfo.name).toBe('Santorio');});
+ it('advertises constrained tools, including detailed food input',async()=>{const response=await call('tools/list',{});expect(response.result.tools.map((t:{name:string})=>t.name)).toEqual(['search_foods','get_food','save_food','search_recipes','get_recipe','save_recipe','search_exercises','get_exercise','save_exercise','search_workouts','get_workout','save_workout','list_locations']);const food=response.result.tools.find((t:{name:string})=>t.name==='save_food');expect(food.inputSchema.properties.food.properties.nutrients).toBeDefined();expect(food.annotations.readOnlyHint).toBe(false);expect(food.outputSchema.properties.data.properties.nutrients).toBeDefined();expect(food._meta.securitySchemes).toEqual([{type:'oauth2',scopes:['nutrition:write']}]);});
+ it('rejects a valid write made with a read-only connection before database access',async()=>{const food={id:'a8e413cd-8d59-4e12-8915-5fe28dfb8a44',name:'Example',brand:'',revision:1,basis:{quantity:100,unit:'g'},nutrients:[{key:'energy',label:'Energy',unit:'kcal',amount:100},{key:'protein',label:'Protein',unit:'g',amount:10},{key:'carbs',label:'Carbs',unit:'g',amount:10},{key:'fat',label:'Fat',unit:'g',amount:2}],sourceUrl:'Label',notes:'',ingredientsText:''};const response=await call('tools/call',{name:'save_food',arguments:{food,expectedVersion:0,mutationId:'f7942393-8f0e-4d17-b10f-a85decc33582'}});expect(response.result.isError).toBe(true);expect(response.result.content[0].text).toContain('Missing nutrition:write permission');expect(response.result._meta['mcp/www_authenticate'][0]).toContain('scope="nutrition:write"');});
+});

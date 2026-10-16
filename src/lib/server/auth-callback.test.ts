@@ -1,0 +1,14 @@
+import {beforeEach,describe,expect,it,vi} from 'vitest';
+vi.mock('server-only',()=>({}));
+const {auth,createProof}=vi.hoisted(()=>({auth:{exchangeCodeForSession:vi.fn(),verifyOtp:vi.fn(),getUser:vi.fn(),signOut:vi.fn()},createProof:vi.fn()}));
+vi.mock('@/lib/server/supabase',()=>({sessionClient:async()=>({auth}),ownerEmail:()=> 'rohin.juneja@berkeley.edu'}));
+vi.mock('@/lib/server/recovery',()=>({createRecoveryProof:createProof}));
+import {GET} from '@/app/api/auth/confirm/route';
+describe('Verified email callback purpose',()=>{
+ beforeEach(()=>{vi.clearAllMocks();process.env.APP_URL='https://santorio.example';auth.getUser.mockResolvedValue({data:{user:{id:'owner',email:'rohin.juneja@berkeley.edu',email_confirmed_at:'2026-10-16T01:00:00Z'}}});auth.signOut.mockResolvedValue({error:null});auth.verifyOtp.mockResolvedValue({error:null});createProof.mockResolvedValue(undefined);});
+ it('creates recovery authorization only for a verified recovery code flow',async()=>{auth.exchangeCodeForSession.mockResolvedValue({data:{redirectType:'recovery'},error:null});const response=await GET(new Request('https://santorio.example/api/auth/confirm?code=example&intent=recovery'));expect(response.headers.get('location')).toBe('https://santorio.example/reset-password');expect(createProof).toHaveBeenCalledOnce();});
+ it('cannot turn a signup code into password recovery by adding a query parameter',async()=>{auth.exchangeCodeForSession.mockResolvedValue({data:{redirectType:null},error:null});const response=await GET(new Request('https://santorio.example/api/auth/confirm?code=example&intent=recovery'));expect(response.headers.get('location')).toContain('/login?authError=');expect(createProof).not.toHaveBeenCalled();expect(auth.signOut).toHaveBeenCalledWith({scope:'local'});});
+ it('cannot turn a signup token hash into recovery by changing intent',async()=>{const response=await GET(new Request('https://santorio.example/api/auth/confirm?token_hash=example&type=signup&intent=recovery'));expect(response.headers.get('location')).toContain('/login?authError=');expect(createProof).not.toHaveBeenCalled();});
+ it('verifies recovery token hashes against the recovery type',async()=>{const response=await GET(new Request('https://santorio.example/api/auth/confirm?token_hash=example&type=recovery'));expect(auth.verifyOtp).toHaveBeenCalledWith({token_hash:'example',type:'recovery'});expect(response.headers.get('location')).toContain('/reset-password');expect(createProof).toHaveBeenCalledOnce();});
+ it('does not issue recovery proof after an invalid email token, even if another session is signed in',async()=>{auth.verifyOtp.mockResolvedValue({error:{message:'invalid'}});await GET(new Request('https://santorio.example/api/auth/confirm?token_hash=bad&type=recovery'));expect(createProof).not.toHaveBeenCalled();});
+});

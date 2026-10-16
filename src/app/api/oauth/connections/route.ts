@@ -1,0 +1,5 @@
+import {z} from 'zod';
+import {adminClient,requireOwner} from '@/lib/server/supabase';
+import {assertSameOrigin,bodyJson,HttpError,json,route} from '@/lib/server/http';
+export async function GET(){return route(async()=>{const {user}=await requireOwner();const {data,error}=await adminClient().from('oauth_grants').select('id,client_name,client_id,scope,created_at,last_used_at,revoked_at').eq('owner_id',user.id).is('revoked_at',null).order('created_at',{ascending:false});if(error)throw new HttpError(503,'Unable to load connections');return json({connections:data});});}
+export async function DELETE(request:Request){return route(async()=>{assertSameOrigin(request);const {user}=await requireOwner();const {id}=z.strictObject({id:z.uuid()}).parse(await bodyJson(request,5000));const {error}=await adminClient().from('oauth_grants').update({revoked_at:new Date().toISOString()}).eq('owner_id',user.id).eq('id',id);if(error)throw new HttpError(503,'Unable to revoke connection');return json({ok:true});});}

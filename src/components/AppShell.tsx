@@ -9,23 +9,28 @@ import { AnimatePresence } from "motion/react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
-import { StoreProvider } from "@/lib/store";
+import { DataProvider, useData } from "@/lib/data-store";
+import AuthGate from "./prototype/AuthGate";
+import ConsentScreen from "./prototype/ConsentScreen";
+import ResetPasswordScreen from "./prototype/ResetPasswordScreen";
 import Greeting from "./home/Greeting";
 import HomeOverlay from "./home/HomeOverlay";
 import { routeOf } from "./routes";
-import DietView from "./views/DietView";
-import SettingsView from "./views/SettingsView";
-import WorkoutView from "./views/WorkoutView";
+
 import s from "./shell.module.css";
 
+const DietView = dynamic(() => import("./prototype/NutritionScreen"));
+const SettingsView = dynamic(() => import("./prototype/SettingsScreen"));
+const WorkoutView = dynamic(() => import("./prototype/WorkoutScreen"));
 const Stage = dynamic(() => import("./stage/Stage"), { ssr: false });
 
 const noop = () => () => {};
 
-export default function AppShell() {
+function VisualShell() {
+  const { profile } = useData();
   const pathname = usePathname();
   const route = routeOf(pathname);
-  // Client-only: "today" and the mock data depend on the device clock.
+  // Date formatting and the 3D introduction begin after hydration.
   const mounted = useSyncExternalStore(
     noop,
     () => true,
@@ -36,8 +41,9 @@ export default function AppShell() {
 
   if (!mounted) return <div className={s.app} />;
 
+  if (!profile.onboardingComplete) return <SettingsView onboarding />;
+
   return (
-    <StoreProvider>
       <div className={s.app}>
         <AnimatePresence>{route === "home" && <Greeting key="greeting" intro={intro} />}</AnimatePresence>
         <div className={s.stage} data-route={route}>
@@ -50,6 +56,11 @@ export default function AppShell() {
           {route === "settings" && <SettingsView key="settings" />}
         </AnimatePresence>
       </div>
-    </StoreProvider>
   );
+}
+
+export default function AppShell() {
+  const pathname=usePathname();
+  if(pathname === "/reset-password") return <ResetPasswordScreen/>;
+  return <AuthGate>{(user,reset)=>pathname.startsWith('/oauth/consent') ? <ConsentScreen/> : <DataProvider user={user} onSignOut={reset}><VisualShell/></DataProvider>}</AuthGate>;
 }

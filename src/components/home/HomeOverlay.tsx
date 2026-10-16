@@ -14,7 +14,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, type UIEvent } from "react";
 import { fmtInt } from "@/lib/energy";
 import { parseIso } from "@/lib/dates";
-import { useStore } from "@/lib/store";
+import { useData } from "@/lib/data-store";
+import { bodyEstimates, dailyIntake, energyOut } from "@/lib/domain/home";
 import Insights from "../insights/Insights";
 import { rig } from "../stage/anchors";
 import { useBodyGestures } from "../stage/gestures";
@@ -26,15 +27,19 @@ import s from "./home.module.css";
 type Props = { intro: boolean };
 
 export default function HomeOverlay({ intro }: Props) {
-  const st = useStore();
+  const st = useData();
   const router = useRouter();
   const root = useRef<HTMLDivElement>(null);
-  const today = st.days[st.today];
-  const qin = st.dayNutrients(st.today).kcal;
-  const qout = st.tdee;
-  const balance = qin - qout;
-  const steps = today?.steps ?? 0;
+  const today = st.records.metrics[st.today];
+  const intake = dailyIntake(Object.values(st.records.diary), st.today);
+  const estimates = bodyEstimates(st.profile, Object.values(st.records.measurements), st.today);
+  const expenditure = energyOut(today, estimates.tdee);
+  const qin = intake.energy;
+  const qout = expenditure.value;
+  const balance = qin !== null && qout !== null ? qin - qout : null;
+  const steps = today?.steps ?? null;
   const water = today?.waterL ?? 0;
+  const goals = st.profile.goals;
   const d = parseIso(st.today);
   const wd = d.toLocaleDateString("en-US", { weekday: "short" });
   const md = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -70,25 +75,25 @@ export default function HomeOverlay({ intro }: Props) {
             animate={{ opacity: 1, y: 0, transition: { delay: delay(1.9), duration: 0.7, ease: [0.2, 0.7, 0.2, 1] } }}
           >
             <div className={s.tiles}>
-              <BalanceTile balance={balance} target={st.balanceTarget} />
+              <BalanceTile balance={balance} target={goals.balanceTarget} partialDay={expenditure.partialDay} />
               <div className={s.tile} style={{ ["--c" as string]: "var(--out)" }}>
                 <div className={s.tileKey}>Steps</div>
                 <div className={s.tileVal}>
-                  {fmtInt(steps)}
-                  <small>/{st.goals.steps / 1000}k</small>
+                  {steps === null ? "—" : fmtInt(steps)}
+                  <small>/{goals.steps / 1000}k</small>
                 </div>
                 <div className={s.bar}>
-                  <i style={{ width: `${Math.min(100, (steps / st.goals.steps) * 100)}%` }} />
+                  <i style={{ width: `${Math.min(100, ((steps ?? 0) / Math.max(1, goals.steps)) * 100)}%` }} />
                 </div>
               </div>
               <Link href="/diet" className={s.tile} style={{ ["--c" as string]: "#7cc4ff" }}>
                 <div className={s.tileKey}>Water</div>
                 <div className={s.tileVal}>
                   {water.toFixed(1)}
-                  <small>/{st.goals.waterL}L</small>
+                  <small>/{goals.waterL}L</small>
                 </div>
                 <div className={s.bar}>
-                  <i style={{ width: `${Math.min(100, (water / st.goals.waterL) * 100)}%` }} />
+                  <i style={{ width: `${Math.min(100, (water / Math.max(0.1, goals.waterL)) * 100)}%` }} />
                 </div>
               </Link>
             </div>
@@ -114,6 +119,8 @@ export default function HomeOverlay({ intro }: Props) {
           intro={intro}
           qin={qin}
           qout={qout}
+          qoutLabel={expenditure.label}
+          qinEstimated={intake.estimated}
           onOpen={(r) => router.push(r === "diet" ? "/diet" : "/workout")}
         />
       </div>

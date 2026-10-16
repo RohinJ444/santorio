@@ -10,7 +10,7 @@ type Side = "left" | "right";
 type Key = "mind" | "qin" | "qout";
 
 // No thousands separator: in mono the comma takes a full-width cell and opens a gap.
-const kcal = (n: number) => String(Math.round(n));
+const kcal = (n: number | null) => n === null ? "—" : String(Math.round(n));
 
 const PAD = 22; // inset of the callout columns from the screen edges
 const clamp = (v: number, a: number, b: number) => Math.min(Math.max(v, a), b);
@@ -72,10 +72,10 @@ function Flip({ icon, delay, children }: { icon: ReactNode; delay: number; child
   );
 }
 
-type Props = { intro: boolean; qin: number; qout: number; onOpen: (r: "diet" | "workout") => void };
+type Props = { intro: boolean; qin: number | null; qout: number | null; qoutLabel?: string; qinEstimated?: boolean; onOpen: (r: "diet" | "workout") => void };
 
 /** HUD callouts: dot on the body, elbow line, label in a stable side column (easy to tap while the body turns). */
-export default function Callouts({ intro, qin, qout, onOpen }: Props) {
+export default function Callouts({ intro, qin, qout, qoutLabel = "TDEE est.", qinEstimated = false, onOpen }: Props) {
   const root = useRef<HTMLDivElement>(null);
 
   useEffect(
@@ -146,6 +146,7 @@ export default function Callouts({ intro, qin, qout, onOpen }: Props) {
             <span className={s.labelHint}>intake</span>
           </div>
           <div className={s.labelVal}>
+            {qinEstimated && qin !== null ? <span className={s.approx}>≈</span> : null}
             {kcal(qin)}
             <small>kcal</small>
           </div>
@@ -161,10 +162,10 @@ export default function Callouts({ intro, qin, qout, onOpen }: Props) {
         <Flip icon={<Dumbbell {...ICON} />} delay={flip(2)}>
           <div className={s.labelKey}>
             Q<sub>out</sub>
-            <span className={s.labelHint}>TDEE</span>
+            <span className={s.labelHint}>{qoutLabel}</span>
           </div>
           <div className={s.labelVal}>
-            <span className={s.approx}>≈</span>
+            {qout !== null ? <span className={s.approx}>≈</span> : null}
             {kcal(qout)}
             <small>kcal</small>
           </div>

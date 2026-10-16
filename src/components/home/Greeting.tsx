@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { useStore } from "@/lib/store";
+import { useData } from "@/lib/data-store";
 import s from "./home.module.css";
 
 function partOfDay(h: number) {
@@ -14,8 +14,9 @@ function partOfDay(h: number) {
 
 /** Oversized greeting set behind the figure. Sits under the 3D stage in the stacking order. */
 export default function Greeting({ intro }: { intro: boolean }) {
-  const st = useStore();
-  const greeting = partOfDay(new Date().getHours());
+  const st = useData();
+  const hour = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hourCycle: "h23", timeZone: st.profile.timezone }).format(new Date()));
+  const greeting = partOfDay(hour);
   const first = st.profile.name.trim().split(/\s+/)[0] || "there";
   return (
     <motion.div

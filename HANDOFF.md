@@ -1,48 +1,46 @@
-# Santorio: handoff from the visual first pass
+# Santorio: current implementation handoff
 
-First pass at the look and interactions, built by Claude Code. Next steps from here
-(data, persistence, auth, performance, deploy) go to Codex. Everything below
-describes what exists and where the seams are.
+Updated 2026-10-16 after the backend implementation. Claude's approved home visuals remain; the app now has real authentication and persistent data. This document supersedes the original mock-data handoff.
+
+## Local UI iteration
+
+Work in `/Users/rohinjuneja/Documents/santorio` using Node 24 (`.nvmrc`). The default system shell may still resolve Node 20; select Node 24 before running commands.
 
 ```bash
-npm install
-npm run dev        # http://localhost:3000
-npm run build      # passes; every route prerenders as static
+npm ci          # when dependencies need installing
+npm run dev     # http://localhost:3417, with hot reload
+npm run build   # production build; includes dynamic authenticated API routes
 ```
 
-Personal project: keep it in a personal GitHub account and a personal Vercel
-account, and keep WindBorne data out of it.
+The local server may already be running on 3417; reuse it. Local `.env.local` must keep `APP_URL=http://localhost:3417`. Cookie-authenticated writes require an exact matching origin, so changing ports requires updating that configuration and the auth redirect allowlist.
 
-## What's here
+Production is https://santorio-gamma.vercel.app. Localhost and production have separate sign-in cookies but use the same Supabase project and owner data. Local UI edits appear through hot reload; no deployment is needed until publishing a chosen version. Keep secrets in ignored environment files. GitHub actions/pushes and new worktrees require the owner's approval. Keep workplace data out of this personal project.
 
-| Screen | Route | State |
-| --- | --- | --- |
-| Body (home) | `/` | Hologram body with callouts (Mind locked), energy balance / steps / water tiles, greeting. Scrolls into an insights grid. Drag or swipe sideways to spin; tap the body to make it jump, tap the gut for Nutrition. |
-| Training | `/workout` | Day view with sessions, set logging sheet, history by setup. |
-| Nutrition | `/diet` | Day view with totals, meals, meal-prep portion and ingredient edits, add-food sheet. |
-| Settings | `/settings` | Profile, weigh-ins, BMR/TDEE, goals. |
+## Active implementation
 
-All data is **mock and in memory**. It resets on reload.
+- `src/components/AppShell.tsx`: persistent visual shell, authentication, onboarding, route views and transitions. Most route `page.tsx` files return null.
+- `src/components/prototype/`: active workout, nutrition, settings, onboarding, authentication and OAuth consent screens, shared controls and CSS. Original mock workout/diet components are not the active screens.
+- `src/lib/data-store.tsx`, `sync-engine.ts`, `draft-storage.ts`: optimistic state, local drafts, per-tab journals, queued saves and explicit version conflicts. Preserve these when polishing visuals; do not restore `src/lib/store.tsx` mock state.
+- `src/lib/domain/`: active types, validation, workout/nutrition calculations and tests. `CONTRACT.md` describes the collection structure.
+- `src/app/api/`, `src/lib/server/`: Next.js APIs and Supabase Auth/Postgres integration. `docs/backend.md` documents endpoints and security boundaries.
+- Home overlays and insights read saved data through `useData`; missing values stay unknown, with no seeded history. Profile-based energy estimates are labeled as estimates.
 
-## Architecture
+Workout screens now support multiple sessions per day, inline partial set logging, custom exercises and muscle groups, editable targets, routines, locations, equipment comparisons, unilateral reps/loads, drops/rest pauses, and cardio. Nutrition supports detailed foods, reusable recipe families, batches, estimated fractions or ingredient-equivalent portions, customized plates, supplements, and immutable logged snapshots.
 
-- **One persistent shell.** `src/components/AppShell.tsx` lives in the root layout and renders every screen based on the pathname. Route `page.tsx` files return `null`. That keeps the 3D canvas mounted across navigation, so leaving home is a camera move rather than a page swap. Views animate in and out with `motion`'s `AnimatePresence`.
-- **Client-only render.** The shell renders after mount (`useSyncExternalStore` gate) because "today" and the mock data depend on the device clock.
-- **State.** `src/lib/store.tsx` is a small React context with actions. Replace it with the real data layer. Its action names map closely to the mutations needed: `saveSet`, `deleteSet`, `startWorkout`, `setPortion`, `nudgeIngredient`, `addFood`, `addWater`, `addWeighIn`, `updateProfile`, `updateGoals`.
-- **Data model.** `src/lib/types.ts` is a proposal shaped by the Notes logs:
-  - `ExerciseEntry.exerciseId` is a stable identity, so history lines up even when names drift.
-  - `equipment` and the workout's `gym` define "same setup". `src/lib/history.ts` only compares numbers on the same setup and labels other gyms or machines separately.
-  - A set is a list of `Segment`s. Drops (`link: "drop"`) and rest-pause (`link: "pause"`) are extra segments. `sides: {R, L}` replaces `reps` for per-side sets. Partial reps are fractional (`7.5`).
-  - `assisted: true` means the weight is assistance, so lower is stronger. It's excluded from volume.
-  - Meal-prep `FoodItem`s keep their own copy of the ingredients, so editing a template never rewrites history. `change` notes record deviations from the template (`more`, `less`, `swap`, `added`).
-  - Weight is a log (`WeighIn[]`), not a setting.
-- **Energy.** `src/lib/energy.ts` computes BMR with Mifflin–St Jeor. With sex unset, it uses the midpoint constant. TDEE is BMR × an activity factor and is shown as an estimate (`≈`, dashed underline) everywhere.
+The live MCP at https://santorio-gamma.vercel.app/api/mcp exposes 13 tools: food/recipe and exercise/workout search, get and save, plus read-only gym lookup, with OAuth/PKCE/CIMD. Workouts use separate read/write permissions. It does not expose raw Health data, daily meal logging or batch creation. ChatGPT's complete connection/tool-call flow still needs user-side validation.
 
-## Home insights (`src/components/insights/`)
+## Remaining work
 
-`Insights.tsx` holds a registry (`INSIGHTS`) of tiles: id, span (half or full width) and a render function over shared data from `src/lib/insights.ts`. Add, remove or reorder tiles by editing the registry. Charts are small SVG components in `charts.tsx`. Days without logged intake use seeded sample values, which are marked and noted in the tile.
+- UI/UX polish and complete interactive workout/nutrition acceptance tests. Production endpoint checks and signed-in home rendering pass, but these are not complete acceptance tests.
+- Apple Health exporter/receiver setup is deferred. Manual data entry works; imported-data contracts exist but no live ingestion endpoint is active.
+- Password recovery exists; the actual recovery-email flow needs user testing.
+- No service worker: reopening the app requires a connection. Current browsers use Web Locks to recover closed-tab drafts; older-browser fallback only automatically recovers the current session.
+- Real-iPhone performance profiling remains, especially shaders and procedural pose math. More detailed trend visuals can follow later. Mind stays intentionally disabled.
+
+Use `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` for changes affecting behavior. Pure visual refinements should preserve inline autosave, keyboard behavior, snapshots, unknown nutrient values and existing data contracts.
 
 ## The 3D stage (`src/components/stage/`)
+
 
 - Gestures come from the DOM layer above the canvas (`gestures.ts`). The home hero has `touch-action: pan-y`, so vertical pans scroll natively, sideways drags spin the body, and still taps are raycast through `anchors.pick`. Tap-to-jump is a keyframed crouch, air and landing timeline in `Body.tsx` that drives extra pose motion.
 
@@ -59,17 +57,4 @@ All data is **mock and in memory**. It resets on reload.
   - Canvas, per-route camera shots, and drag-to-spin.
   - Frame loop: `frameloop` is `"always"` only on home. Elsewhere it is `"demand"`, rendering only while the camera is still moving, so the dimmed background costs nothing once settled.
 
-The body model is a CC0 base mesh by orange-juice-games, taken from [github.com/BoQsc/Godot-3D-Male-Base-Mesh](https://github.com/BoQsc/Godot-3D-Male-Base-Mesh), release 1.0.3 (`male_base_mesh_idle_final.glb`). Verify the license before shipping.
-
-## Not done / open for Codex
-
-- Persistence, auth (single user), Supabase schema, deploy.
-- No-op buttons:
-  - **Add exercise**
-  - **Gym chip:** should open a gym picker
-  - **Units:** lb only
-- **Steps:** a web app can't read Apple Health. The options are manual entry, or an iOS Shortcuts automation that POSTs daily steps.
-- **No service worker.** Installable via the manifest and icons; needs a connection to work.
-- **Performance on a real iPhone isn't profiled.** DPR is clamped to 2. Things to check if needed: shader cost of the additive double-sided hologram, and the per-frame bone math in `pose.ts` (about 20 bones).
-- **Trends:** the greyed-out trend icons in both day views are placeholders for later per-exercise and diet history charts. History is already stored in a structured form for them.
-- **Mind:** intentionally greyed out on home.
+The original visual handoff identifies the body model as a CC0 base mesh by orange-juice-games, taken from [github.com/BoQsc/Godot-3D-Male-Base-Mesh](https://github.com/BoQsc/Godot-3D-Male-Base-Mesh), release 1.0.3 (`male_base_mesh_idle_final.glb`). That license attribution has not been independently verified in the backend implementation pass.

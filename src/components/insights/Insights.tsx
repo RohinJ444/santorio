@@ -1,203 +1,50 @@
 "use client";
 
-/**
- * Home insights: a modular grid. Each tile is an entry in INSIGHTS with a span
- * (1 = half width, 2 = full) and a render function over shared, precomputed data.
- * Add, remove or reorder tiles by editing the registry.
- */
 import type { ReactNode } from "react";
-import { parseIso } from "@/lib/dates";
-import { fmtInt } from "@/lib/energy";
-import { daySeries, KCAL_PER_LB, weeklySessions, type DayPoint } from "@/lib/insights";
-import { useStore } from "@/lib/store";
-import type { WeighIn } from "@/lib/types";
-import { Plus } from "../ui/icons";
-import { Bars, Lines } from "./charts";
+import Link from "next/link";
+import { useData } from "@/lib/data-store";
+import { addDays, parseIso } from "@/lib/dates";
+import { dailyIntake, latestMeasurement } from "@/lib/domain/home";
+import { exerciseHasResults, completedWorkingSets } from "@/lib/domain/workouts";
+import { Bars } from "./charts";
 import s from "./insights.module.css";
 
-type Data = {
-  week: DayPoint[];
-  fortnight: DayPoint[];
-  sessions: { end: string; sessions: number; sample: boolean }[];
-  weighIns: WeighIn[];
-  proteinGoal: number;
-};
+const integer = (value: number) => Math.round(value).toLocaleString("en-US");
+const shortDate = (date: string) => parseIso(date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
-type Insight = { id: string; span: 1 | 2; render: (d: Data) => ReactNode };
-
-const dayLetter = (iso: string) => parseIso(iso).toLocaleDateString("en-US", { weekday: "narrow" });
-const signed = (n: number) => `${n < 0 ? "−" : "+"}${fmtInt(Math.abs(n))}`;
-const anySample = (pts: { sample: boolean }[]) => pts.some((p) => p.sample);
-
-export const INSIGHTS: Insight[] = [
-  {
-    id: "energy-out-week",
-    span: 2,
-    render: ({ week }) => {
-      const avg = week.reduce((a, p) => a + p.qout, 0) / week.length;
-      return (
-        <Tile
-          kicker="Energy out · 7 days"
-          value={<>≈{fmtInt(avg)}</>}
-          unit="kcal/day avg"
-          note="Estimated from TDEE, training and movement"
-        >
-          <Bars values={week.map((p) => p.qout)} labels={week.map((p) => dayLetter(p.date))} highlight={week.length - 1} avg />
-        </Tile>
-      );
-    },
-  },
-  {
-    id: "energy-balance-fortnight",
-    span: 2,
-    render: ({ fortnight }) => {
-      const net = fortnight.reduce((a, p) => a + p.balance, 0);
-      return (
-        <Tile
-          kicker="Energy balance · 14 days"
-          value={signed(net)}
-          unit={`kcal net · ≈${net < 0 ? "−" : "+"}${Math.abs(net / KCAL_PER_LB).toFixed(1)} lb`}
-          note={anySample(fortnight) ? "Unlogged days show sample values" : undefined}
-          tone={net < 0 ? "out" : "warn"}
-        >
-          <Bars values={fortnight.map((p) => p.balance)} color="var(--warn)" negColor="var(--out)" highlight={fortnight.length - 1} />
-          <Legend items={[["var(--out)", "deficit"], ["var(--warn)", "surplus"]]} />
-        </Tile>
-      );
-    },
-  },
-  {
-    id: "intake-vs-expenditure",
-    span: 2,
-    render: ({ fortnight }) => (
-      <Tile kicker="Intake vs expenditure · 14 days" value={null}>
-        <Lines
-          series={[
-            { values: fortnight.map((p) => p.qout), color: "var(--out)", dashed: true },
-            { values: fortnight.map((p) => p.qin), color: "var(--in)" },
-          ]}
-        />
-        <Legend items={[["var(--in)", "Q in · logged"], ["var(--out)", "Q out · TDEE est."]]} />
-      </Tile>
-    ),
-  },
-  {
-    id: "weight",
-    span: 1,
-    render: ({ weighIns }) => {
-      const first = weighIns[0];
-      const last = weighIns[weighIns.length - 1];
-      const delta = last && first ? last.lb - first.lb : 0;
-      return (
-        <Tile kicker="Weight" value={last ? last.lb.toFixed(1) : "—"} unit={`lb · ${delta <= 0 ? "−" : "+"}${Math.abs(delta).toFixed(1)}`}>
-          {weighIns.length > 1 && <Lines series={[{ values: weighIns.map((w) => w.lb), color: "var(--text-2)" }]} height={46} />}
-        </Tile>
-      );
-    },
-  },
-  {
-    id: "training-weeks",
-    span: 1,
-    render: ({ sessions }) => (
-      <Tile kicker="Sessions · 4 wks" value={String(sessions[sessions.length - 1].sessions)} unit="this week">
-        <Bars values={sessions.map((w) => w.sessions)} highlight={sessions.length - 1} height={46} />
-      </Tile>
-    ),
-  },
-  {
-    id: "protein-week",
-    span: 1,
-    render: ({ week, proteinGoal }) => {
-      const hits = week.filter((p) => p.protein >= proteinGoal * 0.95).length;
-      return (
-        <Tile kicker="Protein goal" value={`${hits}/7`} unit="days hit" tone="in">
-          <div className={s.dots}>
-            {week.map((p) => (
-              <span key={p.date} className={p.protein >= proteinGoal * 0.95 ? s.dotOn : s.dot} title={`${fmtInt(p.protein)} g`} />
-            ))}
-          </div>
-        </Tile>
-      );
-    },
-  },
-  {
-    id: "placeholder",
-    span: 1,
-    render: () => (
-      <div className={`${s.tile} ${s.ghost}`}>
-        <Plus size={18} />
-        <span>Add insight</span>
-      </div>
-    ),
-  },
-];
-
-function Tile({
-  kicker,
-  value,
-  unit,
-  note,
-  tone,
-  children,
-}: {
-  kicker: string;
-  value: ReactNode;
-  unit?: string;
-  note?: string;
-  tone?: "in" | "out" | "warn";
-  children?: ReactNode;
-}) {
-  return (
-    <div className={s.tile} data-tone={tone}>
-      <div className={s.kicker}>{kicker}</div>
-      {value !== null && (
-        <div className={s.value}>
-          {value}
-          {unit && <small>{unit}</small>}
-        </div>
-      )}
-      <div className={s.chart}>{children}</div>
-      {note && <div className={s.note}>{note}</div>}
-    </div>
-  );
+function Tile({ kicker, value, unit, note, tone, children }: { kicker: string; value: ReactNode; unit?: string; note?: string; tone?: "in" | "out" | "warn"; children?: ReactNode }) {
+  return <div className={s.tile} data-tone={tone}><div className={s.kicker}>{kicker}</div><div className={s.value}>{value}{unit ? <small>{unit}</small> : null}</div>{children ? <div className={s.chart}>{children}</div> : null}{note ? <div className={s.note}>{note}</div> : null}</div>;
 }
 
-function Legend({ items }: { items: [string, string][] }) {
-  return (
-    <div className={s.legend}>
-      {items.map(([c, label]) => (
-        <span key={label}>
-          <i style={{ background: c }} />
-          {label}
-        </span>
-      ))}
-    </div>
-  );
-}
-
+/** Home insights use recorded data only. Unlogged days never receive sample values. */
 export default function Insights() {
-  const st = useStore();
-  const intake = (date: string) => {
-    if (!st.days[date]?.meals.length) return null;
-    const n = st.dayNutrients(date);
-    return { kcal: n.kcal, protein: n.protein };
-  };
-  const fortnight = daySeries({ today: st.today, days: 14, tdee: st.tdee, workouts: st.workouts, intake });
-  const data: Data = {
-    fortnight,
-    week: fortnight.slice(-7),
-    sessions: weeklySessions(st.today, 4, st.workouts),
-    weighIns: st.weighIns,
-    proteinGoal: st.goals.proteinG,
-  };
+  const { records, profile, today } = useData();
+  const entries = Object.values(records.diary);
+  const days = Array.from({ length: 14 }, (_, index) => addDays(today, index - 13));
+  const week = days.slice(-7).map(date => ({ date, ...dailyIntake(entries, date) }));
+  const logged = week.filter(day => day.energy !== null);
+  const average = logged.length ? logged.reduce((sum, day) => sum + day.energy!, 0) / logged.length : null;
+  const healthDays = days.map(date => records.metrics[date]).filter(day => day?.source === "apple_health" && day.completeDay && day.activeEnergy !== null && day.restingEnergy !== null);
+  const energyAverage = healthDays.length ? healthDays.reduce((sum, day) => sum + day.activeEnergy! + day.restingEnergy!, 0) / healthDays.length : null;
+  const sessions = Object.values(records.workouts).filter(session => session.date >= days[0] && session.date <= today && session.exercises.some(exerciseHasResults));
+  const sets = sessions.reduce((sum, session) => sum + session.exercises.reduce((count, exercise) => count + completedWorkingSets(exercise), 0), 0);
+  const trainingDays = new Set(sessions.map(session => session.date)).size;
+  const weighIn = latestMeasurement(Object.values(records.measurements), "weight_kg", today);
+  const weight = weighIn ? weighIn.value * (profile.weightUnit === "lb" ? 1 / 0.45359237 : 1) : null;
+  const proteinDays = week.filter(day => day.protein !== null);
+  const hits = proteinDays.filter(day => day.protein! >= profile.goals.proteinG).length;
+  const metrics = records.metrics[today];
 
-  return (
-    <div className={s.grid}>
-      {INSIGHTS.map((it) => (
-        <div key={it.id} style={{ gridColumn: `span ${it.span}` }}>
-          {it.render(data)}
-        </div>
-      ))}
-    </div>
-  );
+  return <div className={s.grid}>
+    <div style={{ gridColumn: "span 2" }}><Tile kicker="Logged intake · 7 days" value={average === null ? "—" : integer(average)} unit={average === null ? undefined : "kcal / logged day"} tone="in" note={logged.length ? `${logged.length} of 7 days have food entries. Only logged days are shown; entries may not represent a full day.` : "Log food to begin your intake history."}>
+      {logged.length ? <Bars values={logged.map(day => day.energy!)} labels={logged.map(day => shortDate(day.date))} color="var(--in)" /> : null}
+    </Tile></div>
+    <div style={{ gridColumn: "span 2" }}><Tile kicker="Health energy · 14 days" value={energyAverage === null ? "—" : `≈${integer(energyAverage)}`} unit={energyAverage === null ? undefined : "kcal / complete day"} tone="out" note={healthDays.length ? `${healthDays.length} complete imported days. Resting + active energy; workouts are already included.` : "Complete-day Apple Health imports will appear here once the exporter is connected."}>
+      {healthDays.length ? <Bars values={healthDays.map(day => day.activeEnergy! + day.restingEnergy!)} labels={healthDays.map(day => shortDate(day.date))} /> : null}
+    </Tile></div>
+    <Tile kicker="Training · 14 days" value={String(sessions.length)} unit="sessions" note={`${trainingDays} training days · ${sets} working sets recorded`}><Link href="/workout" className={s.note}>Open training history →</Link></Tile>
+    <Tile kicker="Protein goal · 7 days" value={proteinDays.length ? `${hits}/${proteinDays.length}` : "—"} unit={proteinDays.length ? "logged days hit" : undefined} tone="in" note={`${profile.goals.proteinG} g goal · unlogged days are unknown`}><div className={s.dots}>{week.map(day => <span key={day.date} className={day.protein !== null && day.protein >= profile.goals.proteinG ? s.dotOn : s.dot} title={`${shortDate(day.date)}: ${day.protein === null ? "not logged" : `${integer(day.protein)} g logged`}`} />)}</div></Tile>
+    <Tile kicker="Latest weight" value={weight === null ? "—" : weight.toFixed(1)} unit={weight === null ? undefined : profile.weightUnit} note={weighIn ? `${shortDate(weighIn.date)} · ${weighIn.source === "apple_health" ? "Apple Health" : "manual"}` : "Add a measurement in Settings."} />
+    <Tile kicker="Water · today" value={(metrics?.waterL ?? 0).toFixed(1)} unit={`/ ${profile.goals.waterL} L`} note="Logged water"><Link href="/diet" className={s.note}>Add water →</Link></Tile>
+  </div>;
 }
