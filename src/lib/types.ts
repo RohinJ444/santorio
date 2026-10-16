@@ -11,7 +11,13 @@ export type Profile = {
 
 export type WeighIn = { date: string; lb: number };
 
-export type Goals = { calories: number; proteinG: number; steps: number; waterL: number };
+export type Goals = {
+  /** Daily energy balance target in kcal vs TDEE: negative = cut, 0 = maintain, positive = bulk. */
+  balanceTarget: number;
+  proteinG: number;
+  steps: number;
+  waterL: number;
+};
 
 /* ---------- Training ---------- */
 

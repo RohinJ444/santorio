@@ -4,12 +4,14 @@ import { motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { fmtShort } from "@/lib/dates";
-import { ACTIVITY, ageOn, fmtInt } from "@/lib/energy";
+import { ACTIVITY, ageOn, fmtInt, fmtSigned } from "@/lib/energy";
 import { useStore } from "@/lib/store";
 import type { Activity, Sex, WeighIn } from "@/lib/types";
 import { Figure } from "../ui/icons";
 import { viewMotion } from "./DayHeader";
 import v from "./views.module.css";
+
+type Mode = "cut" | "maintain" | "bulk";
 
 export default function SettingsView() {
   const st = useStore();
@@ -17,6 +19,7 @@ export default function SettingsView() {
   const p = st.profile;
   const g = st.goals;
   const [weighing, setWeighing] = useState<string | null>(null);
+  const mode: Mode = st.balanceTarget < 0 ? "cut" : st.balanceTarget > 0 ? "bulk" : "maintain";
   const ft = Math.floor(p.heightIn / 12);
   const inch = p.heightIn % 12;
 
@@ -135,10 +138,43 @@ export default function SettingsView() {
         <Row label="TDEE" sub={`BMR × ${ACTIVITY[p.activity].factor}`}>
           <span className={v.readout}>≈{fmtInt(st.tdee)} kcal</span>
         </Row>
+        <Row label="Goal" sub="energy balance vs TDEE">
+          <Seg<Mode>
+            value={mode}
+            options={[
+              ["cut", "Cut"],
+              ["maintain", "Maintain"],
+              ["bulk", "Bulk"],
+            ]}
+            onChange={(m) => {
+              const amount = Math.abs(st.balanceTarget) || (m === "cut" ? 300 : 250);
+              st.updateGoals({ balanceTarget: m === "maintain" ? 0 : m === "cut" ? -amount : amount });
+            }}
+          />
+        </Row>
+        {mode !== "maintain" && (
+          <Row label="Daily target" sub={`${fmtSigned(st.balanceTarget)} kcal a day`}>
+            <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <input
+                className={v.input}
+                inputMode="numeric"
+                value={Math.abs(st.balanceTarget)}
+                onChange={(e) => {
+                  const amount = Math.max(0, Number(e.target.value.replace(/\D/g, "") || 0));
+                  st.updateGoals({ balanceTarget: mode === "cut" ? -amount : amount });
+                }}
+                aria-label="Daily energy balance target in kcal"
+              />
+              <span className={v.side}>kcal</span>
+            </span>
+          </Row>
+        )}
+        <Row label="Calorie goal" sub="TDEE + target">
+          <span className={v.readout}>≈{fmtInt(st.calorieGoal)} kcal</span>
+        </Row>
       </Group>
 
       <Group title="Daily goals">
-        <NumRow label="Calories" unit="kcal" value={g.calories} onChange={(calories) => st.updateGoals({ calories })} />
         <NumRow label="Protein" unit="g" value={g.proteinG} onChange={(proteinG) => st.updateGoals({ proteinG })} />
         <NumRow label="Steps" value={g.steps} onChange={(steps) => st.updateGoals({ steps })} />
         <NumRow label="Water" unit="L" value={g.waterL} onChange={(waterL) => st.updateGoals({ waterL })} />

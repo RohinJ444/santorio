@@ -5,6 +5,7 @@
  * Rohin's Notes logs. Profile numbers are placeholders.
  */
 import { addDays, fmtShort } from "./dates";
+import { DEFAULT_BALANCE_TARGET } from "./defaults";
 import type {
   DayLog,
   ExerciseEntry,
@@ -95,7 +96,7 @@ export const TEMPLATES: Record<string, MealTemplate> = {
 };
 
 export const PROFILE: Profile = { name: "Rohin", birthday: "2001-03-14", sex: null, heightIn: 70, activity: "moderate" };
-export const GOALS: Goals = { calories: 2300, proteinG: 170, steps: 10000, waterL: 3 };
+export const GOALS: Goals = { balanceTarget: DEFAULT_BALANCE_TARGET, proteinG: 170, steps: 10000, waterL: 3 };
 
 /* ---------- history ---------- */
 

@@ -51,3 +51,24 @@ export function itemNutrients(item: FoodItem): Nutrients {
 }
 
 export const fmtInt = (n: number) => Math.round(n).toLocaleString("en-US");
+
+/** "−300" / "+250" / "±0", no thousands separator (mono readouts). */
+export const fmtSigned = (n: number) => {
+  const r = Math.round(n);
+  return r === 0 ? "±0" : `${r < 0 ? "−" : "+"}${Math.abs(r)}`;
+};
+
+/** Within this many kcal of the target counts as on target. */
+export const BALANCE_TOLERANCE = 100;
+
+/**
+ * Today's balance against the target, read the way the day unfolds: balance
+ * starts low and climbs as you eat (expenditure is the TDEE estimate), so
+ * below the target means there is still room to eat and above means over.
+ * The same reading holds for cut, maintain and bulk targets.
+ */
+export function balanceStatus(balance: number, target: number) {
+  const remaining = target - balance; // kcal left to eat to land on the target
+  if (Math.abs(remaining) <= BALANCE_TOLERANCE) return { state: "on" as const, remaining };
+  return { state: remaining > 0 ? ("under" as const) : ("over" as const), remaining };
+}

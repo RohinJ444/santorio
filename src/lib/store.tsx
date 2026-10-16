@@ -6,6 +6,7 @@
  */
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { addDays, isoLocal, nowTime } from "./dates";
+import { DEFAULT_BALANCE_TARGET } from "./defaults";
 import { add, bmr, itemNutrients, tdee, ZERO } from "./energy";
 import { buildMock, GOALS, GYMS, PROFILE, TEMPLATES, uid } from "./mock";
 import type { DayLog, FoodItem, Goals, Nutrients, Profile, WeighIn, WorkSet, Workout } from "./types";
@@ -143,6 +144,8 @@ function useStoreValue() {
   const derived = useMemo(() => {
     const latest = state.weighIns[state.weighIns.length - 1];
     const weightLb = latest?.lb ?? 170;
+    // one normalized read: older or partial saved data falls back to the default instead of NaN
+    const balanceTarget = Number.isFinite(state.goals.balanceTarget) ? state.goals.balanceTarget : DEFAULT_BALANCE_TARGET;
     const dayNutrients = (date: string): Nutrients =>
       (state.days[date]?.meals ?? []).reduce(
         (acc, m) => m.items.reduce((a, i) => add(a, itemNutrients(i)), acc),
@@ -152,6 +155,9 @@ function useStoreValue() {
       latestWeighIn: latest,
       bmr: bmr(state.profile, weightLb, state.today),
       tdee: tdee(state.profile, weightLb, state.today),
+      balanceTarget,
+      /** Intake that would hit the balance target today. */
+      calorieGoal: tdee(state.profile, weightLb, state.today) + balanceTarget,
       dayNutrients,
     };
   }, [state]);

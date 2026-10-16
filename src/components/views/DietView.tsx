@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { fmtTime } from "@/lib/dates";
-import { add, fmtInt, foodNutrients, itemNutrients, ZERO } from "@/lib/energy";
+import { ZERO, add, fmtInt, fmtSigned, foodNutrients, itemNutrients } from "@/lib/energy";
 import { FOODS, TEMPLATES, uid } from "@/lib/mock";
 import { useStore } from "@/lib/store";
 import type { FoodItem, Meal } from "@/lib/types";
@@ -37,10 +37,10 @@ export default function DietView() {
                 {fmtInt(total.kcal)}
                 <small>kcal</small>
               </div>
-              <div className={v.goal}>/ {fmtInt(g.calories)} goal</div>
+              <div className={v.goal}>/ {fmtInt(st.calorieGoal)} goal</div>
             </div>
             <div className={v.meter}>
-              <i style={{ width: `${Math.min(100, (total.kcal / g.calories) * 100)}%` }} />
+              <i style={{ width: `${Math.min(100, (total.kcal / st.calorieGoal) * 100)}%` }} />
             </div>
             <div className={v.macros}>
               <Macro label="Protein" value={total.protein} goal={g.proteinG} />
@@ -52,12 +52,8 @@ export default function DietView() {
                 TDEE <span className={v.est}>≈{fmtInt(st.tdee)}</span>
               </span>
               <span>
-                Energy balance{" "}
-                <b>
-                  {du < 0 ? "−" : "+"}
-                  {fmtInt(Math.abs(du))}
-                </b>{" "}
-                kcal {du < 0 ? "deficit" : "surplus"}
+                Energy balance <b>{fmtSigned(du)}</b> kcal · target{" "}
+                <b>{st.balanceTarget === 0 ? "maintain" : fmtSigned(st.balanceTarget)}</b>
               </span>
             </div>
           </div>

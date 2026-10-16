@@ -19,6 +19,7 @@ import Insights from "../insights/Insights";
 import { rig } from "../stage/anchors";
 import { useBodyGestures } from "../stage/gestures";
 import { Gear } from "../ui/icons";
+import BalanceTile from "./BalanceTile";
 import Callouts from "./Callouts";
 import s from "./home.module.css";
 
@@ -69,16 +70,7 @@ export default function HomeOverlay({ intro }: Props) {
             animate={{ opacity: 1, y: 0, transition: { delay: delay(1.9), duration: 0.7, ease: [0.2, 0.7, 0.2, 1] } }}
           >
             <div className={s.tiles}>
-              <Link href="/diet" className={s.tile} data-tone={balance < 0 ? "out" : "warn"}>
-                <div className={s.tileKey}>Energy balance</div>
-                <div className={s.tileVal}>
-                  {balance < 0 ? "−" : "+"}
-                  {fmtInt(Math.abs(balance))}
-                </div>
-                <div className={s.tileSub}>
-                  kcal <span className={s.tone}>{balance < 0 ? "deficit" : "surplus"}</span>
-                </div>
-              </Link>
+              <BalanceTile balance={balance} target={st.balanceTarget} />
               <div className={s.tile} style={{ ["--c" as string]: "var(--out)" }}>
                 <div className={s.tileKey}>Steps</div>
                 <div className={s.tileVal}>
