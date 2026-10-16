@@ -72,10 +72,10 @@ function Flip({ icon, delay, children }: { icon: ReactNode; delay: number; child
   );
 }
 
-type Props = { intro: boolean; qin: number | null; qout: number | null; qoutLabel?: string; qinEstimated?: boolean; onOpen: (r: "diet" | "workout") => void };
+type Props = { intro: boolean; qin: number | null; qout: number | null; qinEstimated?: boolean; onOpen: (r: "diet" | "workout") => void };
 
 /** HUD callouts: dot on the body, elbow line, label in a stable side column (easy to tap while the body turns). */
-export default function Callouts({ intro, qin, qout, qoutLabel = "TDEE est.", qinEstimated = false, onOpen }: Props) {
+export default function Callouts({ intro, qin, qout, qinEstimated = false, onOpen }: Props) {
   const root = useRef<HTMLDivElement>(null);
 
   useEffect(
@@ -162,7 +162,7 @@ export default function Callouts({ intro, qin, qout, qoutLabel = "TDEE est.", qi
         <Flip icon={<Dumbbell {...ICON} />} delay={flip(2)}>
           <div className={s.labelKey}>
             Q<sub>out</sub>
-            <span className={s.labelHint}>{qoutLabel}</span>
+            <span className={s.labelHint}>TDEE</span>
           </div>
           <div className={s.labelVal}>
             {qout !== null ? <span className={s.approx}>≈</span> : null}

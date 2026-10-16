@@ -76,7 +76,7 @@ export default function HomeOverlay({ intro }: Props) {
             animate={{ opacity: 1, y: 0, transition: { delay: delay(1.9), duration: 0.7, ease: [0.2, 0.7, 0.2, 1] } }}
           >
             <div className={s.tiles}>
-              <BalanceTile balance={balance} target={goals.balanceTarget} partialDay={expenditure.partialDay} />
+              <BalanceTile balance={balance} target={goals.balanceTarget} />
               <div className={s.tile} style={{ ["--c" as string]: "var(--out)" }}>
                 <div className={s.tileKey}>Steps</div>
                 <div className={s.tileVal}>
@@ -120,7 +120,6 @@ export default function HomeOverlay({ intro }: Props) {
           intro={intro}
           qin={qin}
           qout={qout}
-          qoutLabel={expenditure.label}
           qinEstimated={intake.estimated}
           onOpen={(r) => router.push(r === "diet" ? "/diet" : "/workout")}
         />

@@ -26,7 +26,7 @@ export function bodyEstimates(profile:ProfileRecord,measurements:Measurement[],d
 }
 export function dailyIntake(entries:DiaryEntry[],date:string):{energy:number|null;protein:number|null;count:number;partial:boolean;estimated:boolean} {
   const day=entries.filter(e=>e.date===date);
-  if(!day.length)return {energy:null,protein:null,count:0,partial:false,estimated:false};
+  if(!day.length)return {energy:0,protein:0,count:0,partial:false,estimated:false};
   const totals=combineTotals(day.map(entry=>nutrientTotals(entry.ingredients,entry.multiplier)));
   const energy=totals.find(t=>t.key==='energy'),protein=totals.find(t=>t.key==='protein');
   return {energy:energy?.amount??null,protein:protein?.amount??null,count:day.length,partial:!!energy?.partial,estimated:day.some(e=>e.estimated)||!!energy?.estimated};

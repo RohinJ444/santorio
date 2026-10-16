@@ -29,7 +29,7 @@ describe('home real-data summaries',()=>{
     const metrics:DayMetrics={id:'2026-10-16',date:'2026-10-16',steps:7000,waterL:2,activeEnergy:500,restingEnergy:800,exerciseMinutes:45,source:'apple_health',healthSources:{steps:'Watch'}};
     expect(energyOut(metrics,2500,1700)).toMatchObject({value:2500,source:'profile'});
   });
-  it('does not fill unlogged intake with zeros or samples',()=>{expect(dailyIntake([],'2026-10-16')).toMatchObject({energy:null,protein:null,count:0});});
+  it('starts an empty diary at zero intake so the home balance can be calculated',()=>{expect(dailyIntake([],'2026-10-16')).toMatchObject({energy:0,protein:0,count:0,partial:false,estimated:false});});
   it('keeps zero readings distinct from unknown estimates when all goals are zero',()=>{
     const zeroProfile={...defaultProfile(),goals:{balanceTarget:0,proteinG:0,steps:0,waterL:0}};
     expect(bodyEstimates(zeroProfile,[],'2026-10-16')).toMatchObject({bmr:null,tdee:null,weightKg:null,heightCm:null});

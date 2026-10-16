@@ -12,7 +12,7 @@ const TONE = { on: "var(--in)", under: "var(--out)", over: "var(--warn)" } as co
  * The white tick is the target. The shaded gap between them is what's left
  * (cyan) or how far over you are (amber); green when you're on target.
  */
-export default function BalanceTile({ balance, target, partialDay = false }: { balance: number | null; target: number; partialDay?: boolean }) {
+export default function BalanceTile({ balance, target }: { balance: number | null; target: number }) {
   if (balance === null) return (
     <Link href="/settings" className={s.tile} aria-label="Energy balance unavailable. Complete your profile and log food.">
       <div className={s.tileKey}>Energy balance</div>
@@ -28,8 +28,7 @@ export default function BalanceTile({ balance, target, partialDay = false }: { b
   const now = pos(balance);
   const goal = pos(target);
 
-  const label = partialDay ? "balance so far" :
-    state === "on"
+  const label = state === "on"
       ? "on target"
       : state === "under"
         ? `${Math.round(remaining)} kcal to go`
@@ -42,7 +41,7 @@ export default function BalanceTile({ balance, target, partialDay = false }: { b
       style={{ ["--c" as string]: TONE[state] }}
       aria-label={`Energy balance ${fmtSigned(balance)} kcal, target ${fmtSigned(target)}, ${label}`}
     >
-      <div className={s.tileKey}>{partialDay ? "Balance so far" : "Energy balance"}</div>
+      <div className={s.tileKey}>Energy balance</div>
       <div className={s.tileVal}>
         {fmtSigned(balance)}
         <small>/{fmtSigned(target)}</small>
