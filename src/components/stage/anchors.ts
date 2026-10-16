@@ -28,4 +28,9 @@ export function emit() {
 }
 
 /** Drag-to-spin state, written by pointer handlers and read by the body each frame. */
-export const rig = { dragging: false, dragDelta: 0, velocity: 0 };
+export const rig = { dragging: false, dragDelta: 0, velocity: 0, lock: null as number | null };
+
+// Dev only: `__rig.lock = 0` freezes the turntable at an angle (radians) for reviewing the figure.
+if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
+  (window as unknown as { __rig: typeof rig }).__rig = rig;
+}

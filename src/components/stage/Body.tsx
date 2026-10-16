@@ -9,6 +9,7 @@ import { anchors, emit, rig } from "./anchors";
 import { createGlowMaterial, createHologramMaterial, createOrganMaterial } from "./materials";
 import { buildBrain, buildGut } from "./organs";
 import { createPoser } from "./pose";
+import { subdivideSkinned } from "./subdivide";
 
 /**
  * CC0 base mesh (orange-juice-games via github.com/BoQsc/Godot-3D-Male-Base-Mesh):
@@ -18,6 +19,7 @@ import { createPoser } from "./pose";
 const MODEL = "/models/body.glb";
 const BONES = { hips: "spine", chest: "spine002", head: "spine005" };
 const HEIGHT = 1.8;
+const SMOOTH_LEVELS = 1;
 const RING = 0.44;
 const COLORS = { body: "#3fe0ff", gut: "#9dff6a", brain: "#a49be0" };
 // organ placement relative to the skeleton (tuned by eye)
@@ -61,6 +63,11 @@ export default function Body({ route, intro, onTap }: Props) {
     scene.traverse((o) => {
       if ((o as THREE.SkinnedMesh).isSkinnedMesh) body = o as THREE.SkinnedMesh;
     });
+    // The base mesh is low-poly; subdivide once so the silhouette reads as fluid, not faceted.
+    if (body && !body.userData.smoothed) {
+      body.geometry = subdivideSkinned(body.geometry, SMOOTH_LEVELS);
+      body.userData.smoothed = true;
+    }
     scene.updateMatrixWorld(true);
     const box = new THREE.Box3();
     if (body) box.setFromObject(body, true);
@@ -101,7 +108,8 @@ export default function Body({ route, intro, onTap }: Props) {
     [],
   );
   const brainOffset = useMemo(() => new THREE.Vector3(0, 0, 0.008), []);
-  const gutOffset = useMemo(() => new THREE.Vector3(0, 0, -0.03), []);
+  // offsets in organ axes (+x left, +y up, +z forward)
+  const gutOffset = useMemo(() => new THREE.Vector3(0, 0, 0.01), []);
 
   useFrame((state, dt) => {
     const t = state.clock.elapsedTime;
@@ -124,7 +132,9 @@ export default function Body({ route, intro, onTap }: Props) {
 
     // spin: slow drift, drag to turn, inertia after release
     const g = spin.current;
-    if (rig.dragging) {
+    if (rig.lock !== null) {
+      g.rotation.y = rig.lock;
+    } else if (rig.dragging) {
       g.rotation.y += rig.dragDelta;
       rig.dragDelta = 0;
     } else {
@@ -132,7 +142,7 @@ export default function Body({ route, intro, onTap }: Props) {
       rig.velocity *= Math.exp(-dt * 2.2);
     }
     g.updateMatrixWorld();
-    pose(t);
+    pose.update(t);
     mats.holo.uniforms.uInvRoot.value.copy(g.matrixWorld).invert();
     pedestal.current.rotation.y = -t * 0.12;
 
@@ -142,7 +152,7 @@ export default function Body({ route, intro, onTap }: Props) {
       head.getWorldPosition(tmp.p);
       g.worldToLocal(tmp.p);
       tmp.p.y += fit.headLen * BRAIN_UP;
-      brain.current.position.copy(tmp.p).add(brainOffset);
+      brain.current.position.copy(tmp.p).add(tmp.q.copy(brainOffset).applyQuaternion(pose.bodyFrame));
       brain.current.scale.setScalar(fit.headLen * BRAIN_SCALE);
     }
     if (hips && chest) {
@@ -150,7 +160,7 @@ export default function Body({ route, intro, onTap }: Props) {
       chest.getWorldPosition(tmp.b);
       tmp.p.lerpVectors(tmp.a, tmp.b, GUT_T);
       g.worldToLocal(tmp.p);
-      gut.current.position.copy(tmp.p).add(gutOffset);
+      gut.current.position.copy(tmp.p).add(tmp.q.copy(gutOffset).applyQuaternion(pose.bodyFrame));
       gut.current.scale.setScalar(GUT_SCALE);
     }
 
@@ -190,14 +200,14 @@ export default function Body({ route, intro, onTap }: Props) {
         <group ref={model} scale={fit.scale} position={fit.offset}>
           <primitive object={gltf.scene} dispose={null} />
         </group>
-        <group ref={brain}>
+        <group ref={brain} quaternion={pose.bodyFrame}>
           <mesh geometry={geos.brain} material={mats.brain} renderOrder={1} raycast={noRaycast} />
           <mesh userData={{ part: "brain" }}>
             <sphereGeometry args={[0.6, 12, 10]} />
             <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
           </mesh>
         </group>
-        <group ref={gut}>
+        <group ref={gut} quaternion={pose.bodyFrame}>
           <mesh geometry={geos.gut} material={mats.gut} renderOrder={1} raycast={noRaycast} />
           <mesh userData={{ part: "gut" }} position={[0, -0.02, 0.03]}>
             <sphereGeometry args={[0.14, 12, 10]} />

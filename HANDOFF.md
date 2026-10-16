@@ -45,7 +45,8 @@ All data is **mock and in memory**. It resets on reload.
   - Hides the two prop meshes bundled with the model (an axe and a pickaxe).
   - Places the procedural organs on the skeleton.
   - Projects anchor points for the DOM callouts every frame through `anchors.ts`. The callouts then move via `setAttribute` and transforms, with no React render per frame.
-- `pose.ts`: a procedural idle pose: relaxed arms, weight on one leg (contrapposto), breathing, sway, head look-around. It resets bones to rest each frame and layers rotations in body axes measured from the skeleton. The model's bundled animation clips aren't used.
+- `subdivide.ts`: one level of Loop subdivision on the skinned body at load (skin weights blended), so the low-poly base mesh reads as a smooth silhouette.
+- `pose.ts`: a procedural build and idle pose. It widens the shoulders once by moving the arm joints out, then each frame applies: a shoulder-width stance, loose dropped shoulders, relaxed arms, a light weight shift, breathing and a head look-around. In dev, `__rig.lock = <radians>` in the console freezes the turntable for reviewing angles (front is `-Math.PI / 2`). It resets bones to rest each frame and layers rotations in body axes measured from the skeleton. The model's bundled animation clips aren't used.
 - `materials.ts`: GLSL for the hologram (scan rings, meridians, fresnel rim, entrance reveal). It includes three's skinning chunks, so it works on the skinned mesh. It also has the organ glow and the floor glow.
 - `organs.ts`: brain and digestive tract built procedurally, so the only downloaded asset is the body.
 - `Stage.tsx`

@@ -16,16 +16,17 @@ function partOfDay(h: number) {
 export default function Greeting({ intro }: { intro: boolean }) {
   const st = useStore();
   const greeting = partOfDay(new Date().getHours());
+  const first = st.profile.name.trim().split(/\s+/)[0] || "there";
   return (
     <motion.div
       className={s.greeting}
-      aria-label={`${greeting}, ${st.profile.name}`}
+      aria-label={`${greeting}, ${first}`}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0, transition: { delay: intro ? 0.5 : 0.1, duration: 1.4, ease: [0.2, 0.7, 0.2, 1] } }}
       exit={{ opacity: 0, transition: { duration: 0.3 } }}
     >
       <div className={s.greetSmall}>{greeting},</div>
-      <div className={s.greetBig}>{st.profile.name || "there"}</div>
+      <div className={s.greetBig}>{first}</div>
     </motion.div>
   );
 }
