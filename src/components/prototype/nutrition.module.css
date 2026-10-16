@@ -134,3 +134,17 @@
 .goalBar i[data-over="true"] { background: var(--warn); }
 .card > .goalBar { height: 8px; }
 .rangeToggle { margin-bottom: 0 !important; }
+
+/* diary as a table: one row per item, totals once per meal */
+.tableHead, .mealRow, .itemRow { display: grid; grid-template-columns: minmax(0, 1fr) 42px 46px 42px 34px 32px; gap: 4px; align-items: center; }
+.tableHead { padding: 10px 0 2px; font: 9px var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); text-align: right; }
+.mealRow { min-height: 46px; }
+.mealRow h2 { font-size: 14px; font-weight: 600; }
+.mealRow .cell { color: var(--text-2); font-weight: 500; }
+.mealRow .cell:first-of-type { color: var(--c); }
+.mealRow .add { justify-self: end; }
+.itemRow { width: 100%; min-height: 38px; padding: 4px 0 4px 10px; margin-bottom: 4px; border-left: 1px solid color-mix(in srgb, var(--c) 30%, transparent); text-align: left; }
+.itemName { min-width: 0; font-size: 13px; line-height: 1.3; color: var(--text); overflow-wrap: anywhere; }
+.itemName small { display: block; margin-top: 1px; font-size: 11px; color: var(--text-3); }
+.cell { font: 13px var(--font-mono); color: var(--text); text-align: right; white-space: nowrap; }
+.cell i { font-style: normal; color: var(--text-3); font-size: 10px; }

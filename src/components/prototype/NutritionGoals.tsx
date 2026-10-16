@@ -63,7 +63,7 @@ export default function NutritionGoals({ date }: { date: string }) {
     <section className={n.card} aria-label="Energy">
       <div className={n.energyRow}>
         <div><small>Consumed</small><b style={{ color: 'var(--in)' }}>{consumed === null ? '—' : fmt(consumed)}</b></div>
-        <div><small>Burned</small><b style={{ color: 'var(--out)' }}>{burned === null ? '—' : `≈${fmt(burned)}`}</b></div>
+        <div><small>Burned</small><b style={{ color: 'var(--out)' }}>{burned === null ? '—' : fmt(burned)}</b></div>
         <div><small>Target</small><b>{energyTarget === null ? '—' : fmt(energyTarget)}</b></div>
       </div>
       {energyTarget !== null ? <Bar value={consumed ?? 0} target={{ amount: energyTarget, kind: 'min' }} tone="var(--in)" /> : null}

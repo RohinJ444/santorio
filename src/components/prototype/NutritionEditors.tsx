@@ -16,12 +16,12 @@ export function Errors({ errors }: { errors: string[] }) { return errors.length 
 export function NutritionSummary({ totals, macrosOnly, protein }: { totals: NutrientTotal[]; macrosOnly?: boolean; protein?: number }) {
   return <div className={n.macroGrid}>{REQUIRED_NUTRIENTS.filter(key => !macrosOnly || key !== 'energy').map(key => {
     const value = totals.find(t => t.key === key);
-    return <div className={n.macro} key={key}><strong>{value?.estimated ? '≈' : ''}{formatAmount(value?.amount ?? null, 0)}{value?.partial ? '+' : ''}{key === 'protein' && protein ? <i>/{protein}</i> : null}</strong><small>{key === 'energy' ? 'kcal' : key}</small></div>;
+    return <div className={n.macro} key={key}><strong>{formatAmount(value?.amount ?? null, 0)}{value?.partial ? '+' : ''}{key === 'protein' && protein ? <i>/{protein}</i> : null}</strong><small>{key === 'energy' ? 'kcal' : key}</small></div>;
   })}</div>;
 }
 export function NutrientBreakdown({ totals }: { totals: NutrientTotal[] }) {
   const groups = [...new Set(totals.map(t => t.group))];
-  return <div><p className={n.help}>A dash means unknown. “Partial” totals include only ingredients with reported values. Nutrient subtypes are shown separately, never added to their parent totals.</p>{groups.map(group => <details className={n.detailGroup} key={group} open={group === 'Energy & macronutrients'}><summary>{group}</summary><table className={n.nutritionTable}><tbody>{totals.filter(t => t.group === group).map(t => <tr key={t.key}><td>{t.label}{t.partial && t.known > 0 ? <small>Partial · {t.known} of {t.total} ingredients</small> : null}</td><td>{t.estimated && t.amount !== null ? '≈ ' : ''}{formatAmount(t.amount)} {t.amount !== null ? t.unit : ''}</td></tr>)}</tbody></table></details>)}</div>;
+  return <div><p className={n.help}>A dash means unknown. “Partial” totals include only ingredients with reported values. Nutrient subtypes are shown separately, never added to their parent totals.</p>{groups.map(group => <details className={n.detailGroup} key={group} open={group === 'Energy & macronutrients'}><summary>{group}</summary><table className={n.nutritionTable}><tbody>{totals.filter(t => t.group === group).map(t => <tr key={t.key}><td>{t.label}{t.partial && t.known > 0 ? <small>Partial · {t.known} of {t.total} ingredients</small> : null}</td><td>{formatAmount(t.amount)} {t.amount !== null ? t.unit : ''}</td></tr>)}</tbody></table></details>)}</div>;
 }
 
 export function FoodEditor({ initial, onSave, onClose, onArchive }: { initial?: FoodRecord; onSave:(food:FoodRecord)=>void; onClose:()=>void; onArchive?:()=>void }) {

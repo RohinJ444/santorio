@@ -67,14 +67,18 @@ export default function NutritionScreen() {
     {notice?<p className={n.notice} role="status">{notice}</p>:null}
     {tab==='diary'?<div className={n.stack}>
       <button type="button" className={n.summaryCard} onClick={()=>setBreakdown(true)} aria-label="All nutrients for this day">
-        <span className={n.kcal}><b>{energy?.estimated?'≈':''}{formatAmount(energy?.amount??null,0)}{energy?.partial?'+':''}</b><small>kcal</small></span>
+        <span className={n.kcal}><b>{formatAmount(energy?.amount??null,0)}{energy?.partial?'+':''}</b><small>kcal</small></span>
         <NutritionSummary totals={totals} macrosOnly protein={profile.goals.proteinG}/>
         <ChevronRight size={16} className={n.chev}/>
       </button>
-      <section className={n.meals} aria-label="Meals">{MEALS.map(meal=>{const meals=entries.filter(entry=>entry.meal===meal);const mealEnergy=meals.length?combineTotals(meals.map(entry=>nutrientTotals(entry.ingredients,entry.multiplier))).find(t=>t.key==='energy')?.amount??null:null;return <div key={meal} className={n.meal}>
-        <div className={n.mealHead}><h2>{meal}</h2>{meals.length?<span className={n.mealKcal}>{formatAmount(mealEnergy,0)} kcal</span>:null}<button type="button" className={n.add} aria-label={`Add to ${meal}`} onClick={()=>{setAddType(batches.length?'batches':'foods');setAddMeal(meal);}}><Plus size={16}/></button></div>
-        {meals.map(entry=>{const kcal=nutrientTotals(entry.ingredients,entry.multiplier).find(t=>t.key==='energy');return <button className={n.entry} key={entry.id} type="button" onClick={()=>setEditor({kind:'entry',value:entry,existing:true})}><span><strong>{entry.name}</strong><small>{entry.time?`${entry.time} · `:''}{entry.kind==='prep'?entry.portionCustomized?'Customized plate':`${formatAmount(entry.multiplier*100,0)}% of batch`:entry.ingredients.map(i=>`${formatAmount(i.quantity*entry.multiplier)} ${i.unit}`).join(' + ')}</small></span><span className={n.entryEnergy}>{entry.estimated?'≈':''}{formatAmount(kcal?.amount??null,0)}{kcal?.partial?'+':''}</span></button>;})}
-      </div>;})}</section>
+      <section className={n.meals} aria-label="Meals">
+        <div className={n.tableHead} aria-hidden><span /><span>kcal</span><span>protein</span><span>carbs</span><span>fat</span><span /></div>
+        {MEALS.map(meal=>{const meals=entries.filter(entry=>entry.meal===meal);// A total only adds information when there's more than one entry to add up.
+          const total=meals.length>1?combineTotals(meals.map(entry=>nutrientTotals(entry.ingredients,entry.multiplier))):null;return <div key={meal} className={n.meal}>
+          <div className={n.mealRow}><h2>{meal}</h2>{total?<MacroCells totals={total}/>:<><span/><span/><span/><span/></>}<button type="button" className={n.add} aria-label={`Add to ${meal}`} onClick={()=>{setAddType(batches.length?'batches':'foods');setAddMeal(meal);}}><Plus size={15}/></button></div>
+          {meals.map(entry=><button className={n.itemRow} key={entry.id} type="button" onClick={()=>setEditor({kind:'entry',value:entry,existing:true})} aria-label={`${entry.name}, edit`}><span className={n.itemName}>{entry.name}{entry.ingredients.length>1&&entry.kind==='food'?<small>{entry.ingredients.length} ingredients</small>:entry.kind==='prep'?<small>meal prep</small>:null}</span><MacroCells totals={nutrientTotals(entry.ingredients,entry.multiplier)}/><span/></button>)}
+        </div>;})}
+      </section>
       <section className={n.water} aria-label="Water">
         <Droplet size={16} className={n.drop}/>
         <div className={n.waterMain}><div className={n.waterValue}><NumberField compact className={n.waterInput} label="Fluid ounces today" value={waterOz} onChange={value=>saveWater(fluidOuncesToLiters(value??0))} min={0} max={waterOunces(30)} step={8}/><small>/ {waterGoal} fl oz</small></div><div className={n.meter}><i style={{width:`${Math.min(100,waterOz/Math.max(1,waterGoal)*100)}%`}}/></div></div>
@@ -111,4 +115,9 @@ export default function NutritionScreen() {
     {editor?.kind==='recipe'||editor?.kind==='batch'?<PrepEditor key={editor.value.id} initial={editor.value} kind={editor.kind} foods={foods} onSave={saveEditor} onClose={()=>setEditor(null)}/>:null}
     {editor?.kind==='entry'?<EntryEditor key={editor.value.id} initial={editor.value} foods={foods} batch={editor.value.batchId?records.batches[editor.value.batchId]:undefined} onSave={entry=>{upsert('diary',entry);setEditor(null);setTab('diary');setDate(entry.date);setNotice('Meal saved.');}} onClose={()=>setEditor(null)} onDelete={editor.existing?()=>{remove('diary',editor.value.id);setEditor(null);setNotice('Diary entry deleted.');}:undefined}/>:null}
   </main>;
+}
+
+/** kcal · protein · carbs · fat as table cells. A dash is unknown; "+" means some foods don't report it. */
+function MacroCells({totals}:{totals:ReturnType<typeof nutrientTotals>}) {
+  return <>{(['energy','protein','carbs','fat'] as const).map(key=>{const t=totals.find(x=>x.key===key);return <span key={key} className={n.cell}>{formatAmount(t?.amount??null,0)}{t?.partial&&t.amount!==null?<i>+</i>:null}</span>;})}</>;
 }
