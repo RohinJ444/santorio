@@ -66,7 +66,8 @@ export function ingredientIssues(ingredients: RecipeIngredient[]): string[] {
 export type NutrientTotal = NutrientDefinition & { amount: number | null; partial: boolean; estimated: boolean; known: number; total: number };
 export function nutrientTotals(ingredients: RecipeIngredient[], multiplier = 1): NutrientTotal[] {
   const definitions = new Map(NUTRIENTS.map(n => [n.key, n]));
-  for (const ingredient of ingredients) for (const n of ingredient.food.nutrients) if (!definitions.has(n.key)) definitions.set(n.key, { ...n, group:'Other' });
+  // A total can combine several foods; source references belong to their snapshots.
+  for (const ingredient of ingredients) for (const n of ingredient.food.nutrients) if (!definitions.has(n.key)) definitions.set(n.key, { key:n.key, label:n.label, unit:n.unit, group:'Other' });
   const active = ingredients.filter(i => i.quantity > 0 && multiplier > 0);
   return [...definitions.values()].map(def => {
     let sum = 0, known = 0, estimated = false;

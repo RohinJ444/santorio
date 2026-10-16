@@ -58,6 +58,23 @@ describe('nutrient coverage',()=>{
     expect(total([ingredient(f)],'special_compound').amount).toBe(5);
     expect(total([ingredient(f)],'fat').amount).toBe(5);
   });
+  it('aggregates custom nutrients without attributing the combined total to one food source',()=>{
+    const first=food(),second=food({id:'second'});
+    first.nutrients.push({key:'special_compound',label:'Special compound',unit:'mg',amount:5,source:'First food label',estimated:true});
+    second.nutrients.push({key:'special_compound',label:'Special compound',unit:'g',amount:.005,source:'Second food label'});
+    const items=[ingredient(first),ingredient(second,100,'g','second')],original=structuredClone(items);
+    const totals=nutrientTotals(items,.5);
+    expect(totals.find(n=>n.key==='special_compound')).toEqual({key:'special_compound',label:'Special compound',unit:'mg',group:'Other',amount:5,partial:false,estimated:true,known:2,total:2});
+    expect(combineTotals([totals]).find(n=>n.key==='special_compound')).not.toHaveProperty('source');
+    expect(items).toEqual(original);
+  });
+  it.each([null,0])('preserves custom nutrient value %s without leaking its source into totals',amount=>{
+    const f=food();f.nutrients.push({key:'custom_nutrient',label:'Custom nutrient',unit:'mg',amount,source:'Reference'});
+    const nutrient=total([ingredient(f)],'custom_nutrient');
+    expect(nutrient).toMatchObject({amount,partial:amount===null,known:amount===null?0:1,total:1});
+    expect(nutrient).not.toHaveProperty('source');
+    expect(f.nutrients.at(-1)?.source).toBe('Reference');
+  });
   it('requires macro information even when micronutrients are optional',()=>{
     const f=food();f.nutrients[1].amount=null;
     expect(validateFood(f).some(message=>message.startsWith('Protein is required'))).toBe(true);

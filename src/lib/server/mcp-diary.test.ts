@@ -39,6 +39,12 @@ function food(id:string,name:string,energy:number,protein:number,carbs:number,fa
  return {id,name,brand:'',revision:1,basis:{quantity:1,unit:'cup'},nutrients:[nutrientValue('energy',energy),nutrientValue('protein',protein),nutrientValue('carbs',carbs),nutrientValue('fat',fat),nutrientValue('vitamin_c',null)],sourceUrl:'Label',notes:'',ingredientsText:''};
 }
 function milk(){return {...food(ids.milk,'2% milk',130,8,13,5),nutrients:[...food(ids.milk,'2% milk',130,8,13,5).nutrients,{...nutrientValue('calcium',300),estimated:true}]};}
+function milkWithCustomNutrients():FoodRecord{return {...milk(),nutrients:[...milk().nutrients,
+ {key:'custom_compound',label:'Custom compound',unit:'mg',amount:8,source:'Manufacturer label'},
+ {key:'custom_estimate',label:'Custom estimate',unit:'mg',amount:4,source:'Reference estimate',estimated:true},
+ {key:'custom_unknown',label:'Custom unknown',unit:'mg',amount:null,source:'Not reported',estimated:true},
+ {key:'custom_zero',label:'Custom zero',unit:'g',amount:0,source:'Confirmed absent',estimated:false},
+]};}
 function oats(){return {...food(ids.oats,'Oats',400,20,60,10),basis:{quantity:100,unit:'g'}};}
 function batch():PrepBatch{return {id:ids.batch,name:'Weekly oats',date:'2026-10-15',recipeId:null,notes:'',anchorIngredientId:ids.anchor,ingredients:[{id:ids.anchor,food:oats(),quantity:1000,unit:'g'},{id:uuid(7),food:milk(),quantity:4,unit:'cup'}]};}
 function mealArgs(){return {id:ids.meal,date:'2026-10-16',meal:'Breakfast',name:'Oats and milk',estimated:true,mutationId:ids.mutation,source:{kind:'foods',items:[{foodId:ids.milk,foodVersion:1,quantity:6,unit:'fl oz'},{foodId:ids.oats,foodVersion:1,quantity:30,unit:'g'}]}};}
@@ -66,6 +72,34 @@ describe('direct meal logging through MCP and the shared record service',()=>{
   const search=await call('search_diary',{dateFrom:'2026-10-16',dateTo:'2026-10-16',meal:'Breakfast',query:'milk'});expect(search.structuredContent.records).toHaveLength(1);
   expect(search.structuredContent.records[0].totals).toHaveLength(4);expect(search.structuredContent.hasMore).toBe(false);
   expect(rows.get(`${ownerId}:foods:${ids.milk}`)!.version).toBe(1);
+ });
+ it('returns valid totals for custom nutrients while preserving sources in snapshots across logging, reading and retry',async()=>{
+  const enriched=milkWithCustomNutrients();remember('foods',enriched);
+  const response=await call('log_meal',mealArgs());expect(response.isError).not.toBe(true);
+  expect(response.structuredContent.data.ingredients[0].food.nutrients).toEqual(enriched.nutrients);
+  expect(total(response,'custom_compound')).toMatchObject({amount:6,group:'Other',partial:true,known:1,total:2,estimated:false});
+  expect(total(response,'custom_estimate')).toMatchObject({amount:3,estimated:true,partial:true});
+  expect(total(response,'custom_unknown')).toMatchObject({amount:null,partial:true,known:0,total:2});
+  expect(total(response,'custom_zero')).toMatchObject({amount:0,known:1,partial:true});
+  for(const nutrient of enriched.nutrients.filter(n=>n.key.startsWith('custom_')))expect(total(response,nutrient.key)).not.toHaveProperty('source');
+  const read=await call('get_diary_entry',{id:ids.meal});expect(read.isError).not.toBe(true);expect(read.structuredContent).toEqual(response.structuredContent);
+  const retry=await call('log_meal',mealArgs());expect(retry.isError).not.toBe(true);expect(retry.structuredContent).toEqual(response.structuredContent);
+  expect(rpc).toHaveBeenCalledTimes(1);expect(ledger.size).toBe(1);expect([...rows.values()].filter(r=>r.collection==='diary')).toHaveLength(1);
+ });
+ it.each(['fraction','anchor'])('returns valid custom nutrient totals for batch lookup, %s prep logging and diary edits',async(kind)=>{
+  const enriched=milkWithCustomNutrients(),prep=batch();prep.ingredients[1].food=enriched;remember('batches',prep);
+  const full=await call('get_batch',{id:ids.batch});expect(full.isError).not.toBe(true);
+  expect(total(full,'custom_compound').amount).toBe(32);expect(total(full,'custom_estimate')).toMatchObject({amount:16,estimated:true});
+  expect(full.structuredContent.data.ingredients[1].food.nutrients).toEqual(enriched.nutrients);
+  const portion=kind==='fraction'?{kind,fraction:0.2}:{kind,quantity:200,unit:'g'};
+  const logged=await call('log_meal',prepArgs(portion));expect(logged.isError).not.toBe(true);expect(total(logged,'custom_compound').amount).toBeCloseTo(6.4);
+  const entry=savedEntry();entry.multiplier=0.5;
+  const edited=await call('save_diary_entry',{entry,expectedVersion:1,mutationId:uuid(8)});expect(edited.isError).not.toBe(true);
+  expect(edited.structuredContent.version).toBe(2);expect(total(edited,'custom_compound').amount).toBe(16);
+  expect(total(edited,'custom_estimate')).toMatchObject({amount:8,estimated:true});expect(total(edited,'custom_unknown').amount).toBeNull();
+  expect(edited.structuredContent.data.ingredients[1].food.nutrients).toEqual(enriched.nutrients);
+  for(const response of [full,logged,edited])for(const nutrient of enriched.nutrients.filter(n=>n.key.startsWith('custom_')))expect(total(response,nutrient.key)).not.toHaveProperty('source');
+  expect(rpc).toHaveBeenCalledTimes(2);expect((rows.get(`${ownerId}:batches:${ids.batch}`)!.data as PrepBatch).ingredients[1].quantity).toBe(4);
  });
  it.each(['fraction','anchor'])('logs a prep portion using %s without applying the portion twice',async(kind)=>{
   const response=await call('log_meal',prepArgs(kind==='fraction'?{kind,fraction:0.2}:{kind,quantity:200,unit:'g'}));
