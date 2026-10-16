@@ -169,7 +169,7 @@ describe('MCP exercise and workout tools',()=>{
  });
  it('does not let newly created workouts invent Health or routine associations',async()=>{
   const value=workout();
-  const candidates=[{...value,healthWorkoutIds:[ids.health]},{...value,routineId:ids.routine},{...value,exercises:[{...value.exercises[0],routineExerciseId:ids.routineExercise}]}];
+  const candidates=[{...value,exercises:[{...value.exercises[0],healthWorkoutIds:[ids.health]}]},{...value,healthWorkoutIds:[ids.health]},{...value,routineId:ids.routine},{...value,exercises:[{...value.exercises[0],routineExerciseId:ids.routineExercise}]}];
   for(const candidate of candidates){
    const response=await call('save_workout',saveArgs(candidate));
    expect(response.result.isError).toBe(true);
@@ -184,6 +184,19 @@ describe('MCP exercise and workout tools',()=>{
   expect(preserved.result.isError).not.toBe(true);
   records.saveRecord.mockClear();
   for(const candidate of [{...existing,healthWorkoutIds:[]},{...existing,routineId:secondId},{...existing,exercises:[{...existing.exercises[0],routineExerciseId:secondId}]}]){
+   const response=await call('save_workout',saveArgs(candidate,3));
+   expect(response.result.isError).toBe(true);
+  }
+  expect(records.saveRecord).not.toHaveBeenCalled();
+ });
+ it('preserves exercise-level Watch links and rejects reassignment or removal through MCP',async()=>{
+  const existing=workout();
+  existing.exercises[0].healthWorkoutIds=[ids.health];
+  remember('workouts',existing,3);
+  const preserved=await call('save_workout',saveArgs({...existing,notes:'Updated notes'},3));
+  expect(preserved.result.isError).not.toBe(true);
+  records.saveRecord.mockClear();
+  for(const candidate of [{...existing,exercises:[]},{...existing,exercises:[{...existing.exercises[0],healthWorkoutIds:[]}]},{...existing,exercises:[{...existing.exercises[0],healthWorkoutIds:[secondId]}]}]){
    const response=await call('save_workout',saveArgs(candidate,3));
    expect(response.result.isError).toBe(true);
   }

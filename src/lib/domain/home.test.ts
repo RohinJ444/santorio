@@ -16,11 +16,18 @@ describe('home real-data summaries',()=>{
     expect(latestMeasurement([measurement,{...measurement,id:'future',date:'2026-10-20',value:100}],'weight_kg','2026-10-16')?.value).toBe(80);
     expect(bodyEstimates(profile,[measurement],'2026-10-16').bmr).toBe(1785);
   });
-  it('uses all-day active plus resting without double counting workouts or applying an activity factor',()=>{
-    const metrics:DayMetrics={id:'2026-10-16',date:'2026-10-16',steps:7000,waterL:2,activeEnergy:500,restingEnergy:1200,exerciseMinutes:45,source:'apple_health',completeDay:false};
-    expect(energyOut(metrics,2500)).toMatchObject({value:1700,label:'Health so far',partialDay:true});
-    expect(energyOut({...metrics,completeDay:true},2500)).toMatchObject({value:1700,partialDay:false});
-    expect(energyOut({...metrics,activeEnergy:null},2500)).toMatchObject({value:2500,source:'profile'});
+  it('uses estimated BMR plus daily active energy without summing workout or imported resting calories',()=>{
+    const metrics:DayMetrics={id:'2026-10-16',date:'2026-10-16',steps:7000,waterL:2,activeEnergy:500,restingEnergy:800,exerciseMinutes:45,source:'apple_health',completeDay:false,healthSources:{activeEnergy:'Watch',restingEnergy:'Watch'}};
+    expect(energyOut(metrics,2500,1700)).toMatchObject({value:2200,label:'TDEE est.',partialDay:true,source:'mixed'});
+    expect(energyOut({...metrics,restingEnergy:9999,completeDay:true},2500,1700).value).toBe(2200);
+    expect(energyOut({...metrics,restingEnergy:null},2500,1700).value).toBe(2200);
+    expect(energyOut({...metrics,activeEnergy:0},2500,1700).value).toBe(1700);
+    expect(energyOut({...metrics,activeEnergy:null},2500,1700)).toMatchObject({value:2500,source:'profile'});
+    expect(energyOut(metrics,null,null)).toMatchObject({value:null,source:'unknown'});
+  });
+  it('does not confuse imported steps with imported active energy',()=>{
+    const metrics:DayMetrics={id:'2026-10-16',date:'2026-10-16',steps:7000,waterL:2,activeEnergy:500,restingEnergy:800,exerciseMinutes:45,source:'apple_health',healthSources:{steps:'Watch'}};
+    expect(energyOut(metrics,2500,1700)).toMatchObject({value:2500,source:'profile'});
   });
   it('does not fill unlogged intake with zeros or samples',()=>{expect(dailyIntake([],'2026-10-16')).toMatchObject({energy:null,protein:null,count:0});});
   it('keeps zero readings distinct from unknown estimates when all goals are zero',()=>{

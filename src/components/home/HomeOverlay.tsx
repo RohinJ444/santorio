@@ -16,6 +16,7 @@ import { fmtInt } from "@/lib/energy";
 import { parseIso } from "@/lib/dates";
 import { useData } from "@/lib/data-store";
 import { bodyEstimates, dailyIntake, energyOut } from "@/lib/domain/home";
+import { litersToFluidOunces } from "@/lib/domain/water";
 import Insights from "../insights/Insights";
 import { rig } from "../stage/anchors";
 import { useBodyGestures } from "../stage/gestures";
@@ -33,7 +34,7 @@ export default function HomeOverlay({ intro }: Props) {
   const today = st.records.metrics[st.today];
   const intake = dailyIntake(Object.values(st.records.diary), st.today);
   const estimates = bodyEstimates(st.profile, Object.values(st.records.measurements), st.today);
-  const expenditure = energyOut(today, estimates.tdee);
+  const expenditure = energyOut(today, estimates.tdee, estimates.bmr);
   const qin = intake.energy;
   const qout = expenditure.value;
   const balance = qin !== null && qout !== null ? qin - qout : null;
@@ -89,8 +90,8 @@ export default function HomeOverlay({ intro }: Props) {
               <Link href="/diet" className={s.tile} style={{ ["--c" as string]: "#7cc4ff" }}>
                 <div className={s.tileKey}>Water</div>
                 <div className={s.tileVal}>
-                  {water.toFixed(1)}
-                  <small>/{goals.waterL}L</small>
+                  {Math.round(litersToFluidOunces(water))}
+                  <small>/{Math.round(litersToFluidOunces(goals.waterL))}oz</small>
                 </div>
                 <div className={s.bar}>
                   <i style={{ width: `${Math.min(100, (water / Math.max(0.1, goals.waterL)) * 100)}%` }} />

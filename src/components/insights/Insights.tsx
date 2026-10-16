@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useData } from "@/lib/data-store";
 import { addDays, parseIso } from "@/lib/dates";
 import { dailyIntake, latestMeasurement } from "@/lib/domain/home";
+import { waterOunces } from "@/lib/domain/water";
 import { exerciseHasResults, completedWorkingSets } from "@/lib/domain/workouts";
 import { Bars } from "./charts";
 import s from "./insights.module.css";
@@ -45,6 +46,6 @@ export default function Insights() {
     <Tile kicker="Training · 14 days" value={String(sessions.length)} unit="sessions" note={`${trainingDays} training days · ${sets} working sets recorded`}><Link href="/workout" className={s.note}>Open training history →</Link></Tile>
     <Tile kicker="Protein goal · 7 days" value={proteinDays.length ? `${hits}/${proteinDays.length}` : "—"} unit={proteinDays.length ? "logged days hit" : undefined} tone="in" note={`${profile.goals.proteinG} g goal · unlogged days are unknown`}><div className={s.dots}>{week.map(day => <span key={day.date} className={day.protein !== null && day.protein >= profile.goals.proteinG ? s.dotOn : s.dot} title={`${shortDate(day.date)}: ${day.protein === null ? "not logged" : `${integer(day.protein)} g logged`}`} />)}</div></Tile>
     <Tile kicker="Latest weight" value={weight === null ? "—" : weight.toFixed(1)} unit={weight === null ? undefined : profile.weightUnit} note={weighIn ? `${shortDate(weighIn.date)} · ${weighIn.source === "apple_health" ? "Apple Health" : "manual"}` : "Add a measurement in Settings."} />
-    <Tile kicker="Water · today" value={(metrics?.waterL ?? 0).toFixed(1)} unit={`/ ${profile.goals.waterL} L`} note="Logged water"><Link href="/diet" className={s.note}>Add water →</Link></Tile>
+    <Tile kicker="Water · today" value={waterOunces(metrics?.waterL ?? 0)} unit={`/ ${waterOunces(profile.goals.waterL)} fl oz`} note="Logged water"><Link href="/diet" className={s.note}>Add water →</Link></Tile>
   </div>;
 }

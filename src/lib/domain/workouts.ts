@@ -27,7 +27,7 @@ export function newSessionExercise(definition: ExerciseDefinition, weightUnit: '
 /** Templates contain prescriptions and setup, never results or import associations. */
 export function clearExerciseResults(exercise: SessionExercise): SessionExercise {
   return {
-    ...exercise, id: newId(), secondaryMuscles: [...exercise.secondaryMuscles], targets: { ...exercise.targets }, notes: '',
+    ...exercise, id: newId(), secondaryMuscles: [...exercise.secondaryMuscles], targets: { ...exercise.targets }, notes: '', healthWorkoutIds: [],
     sets: exercise.tracking === 'cardio' ? [] : Array.from({ length: exercise.targets.sets }, () => blankSet(exercise.targets)),
     ...(exercise.tracking === 'cardio' ? { cardio: { minutes: null, distance: null, distanceUnit: exercise.cardio?.distanceUnit ?? 'mi', speed: null, incline: null } } : { cardio: undefined }),
   };

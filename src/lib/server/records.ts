@@ -28,6 +28,7 @@ export async function saveRecord(db:SupabaseClient,ownerId:string,collection:Col
   if(data&&data.id!==id) throw new HttpError(400,'Record ID does not match the URL');
   const fingerprint=hash(JSON.stringify({collection,id,data,expectedVersion,deleted}));
   const {data:result,error}=await db.rpc('save_record',{p_owner_id:ownerId,p_collection:collection,p_id:id,p_data:data,p_expected_version:expectedVersion,p_mutation_id:mutationId,p_fingerprint:fingerprint,p_deleted:deleted});
+  if(error?.code==='23514'&&['A Watch workout can only be linked once','The selected Watch workout is unavailable','This Watch workout is already linked to another workout'].includes(error.message)) throw new HttpError(422,error.message);
   if(error) throw new HttpError(error.code==='P0002'?404:503,error.code==='P0002'?'Record not found':'Unable to save this change');
   if(!result.ok) {
     if(result.reason==='mutation_reused') throw new HttpError(409,'This mutation ID was already used for a different change');

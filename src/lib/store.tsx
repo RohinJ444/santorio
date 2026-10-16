@@ -125,7 +125,7 @@ function useStoreValue() {
         ),
       addWater: (date: string, l: number) =>
         setState((s) =>
-          mapDay(s, date, (d) => ({ ...d, waterL: Math.max(0, Math.round(((d.waterL ?? 0) + l) * 100) / 100) })),
+          mapDay(s, date, (d) => ({ ...d, waterL: Math.max(0, (d.waterL ?? 0) + l) })),
         ),
       addFood: (date: string, item: FoodItem) =>
         setState((s) =>

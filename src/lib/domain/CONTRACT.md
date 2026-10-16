@@ -32,3 +32,11 @@ Auth endpoints agent owns and should communicate exact contract to root. /api/au
 Record IDs are UUIDs except singleton profile='profile' and metrics IDs can be YYYY-MM-DD. Each logical aggregate is atomic; nested sets/ingredients are JSONB and snapshots are deliberate. Backend must validate collection-specific payloads and reject unknown collections/fields. Private records are owner-scoped and versioned. No secret keys sent to browser. Root provisions env/project. Agent writes migration using Supabase CLI migration new once root installs CLI. Remote apply_migration happens only after review by root.
 
 Nutrient keys: energy(kcal),protein(g),carbs(g),fat(g) required known numbers for foods. Other nutrients extensible but use canonical units/keys; null means unknown. Recipe ingredients snapshot food revisions. quantity+unit describes actual food amount; a 'serving' means one basis quantity. Conversion supports mass g/oz/lb/kg; volume only when compatible, never guess density. Diary prep ingredients snapshot full batch and multiplier=consumed fraction. Editing serving details can alter those private ingredient quantities without changing batch.
+
+
+Health import contracts:
+- GET /api/health/connection -> {connected,createdAt,lastImportedAt,lastResult,endpoint}; POST -> {token,endpoint,createdAt}; DELETE -> {ok:true}. Never persist or log the returned plaintext token in the client.
+- POST /api/health/upload (owner cookie + Origin) and /api/health/import (dedicated Bearer token) accept raw JSON v2. Daily summaries require `X-Santorio-Aggregation: days` or `Automation-Aggregation: days`.
+- Import result -> {ok:true,created,updated,unchanged,counts:{days,workouts,measurements},warnings,importedAt}.
+- Metrics carry optional healthSources per imported field. Imported values replace their own fields; omitted values and manual water are preserved. completeDay is false because exporter coverage is not provable.
+- WorkoutSession and SessionExercise can reference healthWorkoutIds. A Watch workout may belong to one whole session or one exercise across all sessions; explicit unlink before moving. Repeating/routine conversion clears associations. Server trigger enforces availability/uniqueness under the owner lock.

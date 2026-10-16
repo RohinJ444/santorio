@@ -30,7 +30,7 @@ Workout sessions support multiple workouts per date, saved locations, reusable r
 
 `/api/mcp` exposes food/recipe library tools plus exercise/workout search, read and save tools, and saved-gym lookup, using Streamable HTTP. Nutrition and workouts use separate OAuth read/write scopes; existing nutrition-only grants do not gain workout access automatically. OAuth supports PKCE, CIMD, a registration fallback, scoped opaque tokens, revocation, and consent. See [backend configuration](docs/backend.md). The browser can refresh data added by MCP when returning to the app.
 
-Apple Health exporter setup is pending. The schema includes source-tagged measurements, daily activity, and external workouts; the current prototype does not receive or automatically import Apple Health exports. No exercise-calorie estimates are invented. Daily imported resting + active energy must not have workout calories added a second time.
+Apple Health imports are implemented locally through Health Auto Export JSON v2. Settings supports file uploads and a revocable REST import token. Imports update daily activity, body measurements and Watch workouts, preserving manual water and absent fields. Watch sessions can be linked to a whole workout or a single exercise. Daily expenditure uses the profile BMR estimate plus imported daily active energy; neither workout calories nor the activity factor are added again. Exported resting energy stays available for reference. See [Health setup](docs/backend.md#health-auto-export-setup). Publishing the receiver and configuring the phone automations remain pending owner approval.
 
 ## Checks
 

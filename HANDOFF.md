@@ -32,7 +32,7 @@ The live MCP at https://santorio-gamma.vercel.app/api/mcp exposes 13 tools: food
 ## Remaining work
 
 - UI/UX polish and complete interactive workout/nutrition acceptance tests. Production endpoint checks and signed-in home rendering pass, but these are not complete acceptance tests.
-- Apple Health exporter/receiver setup is deferred. Manual data entry works; imported-data contracts exist but no live ingestion endpoint is active.
+- Health Auto Export receiver, file upload, token management and Watch linking are implemented locally. The Health migrations are applied and the October 4 sample is imported; public deployment and phone automation setup remain pending. See docs/backend.md. Do not change the approved home labels or visuals while connecting data. Imported resting energy is reference only; home expenditure uses estimated BMR + daily active energy. The complete-day Health trend tile remains empty when coverage is unknown.
 - Password recovery exists; the actual recovery-email flow needs user testing.
 - No service worker: reopening the app requires a connection. Current browsers use Web Locks to recover closed-tab drafts; older-browser fallback only automatically recovers the current session.
 - Real-iPhone performance profiling remains, especially shaders and procedural pose math. More detailed trend visuals can follow later. Mind stays intentionally disabled.

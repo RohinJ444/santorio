@@ -6,6 +6,7 @@ import { fmtTime } from "@/lib/dates";
 import { ZERO, add, fmtInt, fmtSigned, foodNutrients, itemNutrients } from "@/lib/energy";
 import { FOODS, TEMPLATES, uid } from "@/lib/mock";
 import { useStore } from "@/lib/store";
+import { fluidOuncesToLiters, waterOunces } from "@/lib/domain/water";
 import type { FoodItem, Meal } from "@/lib/types";
 import { ChevronRight, Close, Minus, Plus } from "../ui/icons";
 import DayHeader, { useSwipeDays, viewMotion } from "./DayHeader";
@@ -90,21 +91,21 @@ function Hydration({ date }: { date: string }) {
       <div className={v.mealHead}>
         <div className={v.kicker}>Water</div>
         <div className={v.goal}>
-          {water.toFixed(2).replace(/0$/, "")} / {goal} L
+          {waterOunces(water)} / {waterOunces(goal)} fl oz
         </div>
       </div>
       <div className={v.meter}>
         <i style={{ width: `${Math.min(100, (water / goal) * 100)}%` }} />
       </div>
       <div className={v.waterBtns}>
-        <button className={v.toggle} onClick={() => st.addWater(date, -0.25)} disabled={water <= 0} aria-label="Remove 250 ml">
-          <Minus size={14} /> 250 ml
+        <button className={v.toggle} onClick={() => st.addWater(date, -fluidOuncesToLiters(8))} disabled={water <= 0} aria-label="Remove 8 fluid ounces">
+          <Minus size={14} /> 8 fl oz
         </button>
-        <button className={v.toggle} onClick={() => st.addWater(date, 0.25)}>
-          <Plus size={14} /> 250 ml
+        <button className={v.toggle} onClick={() => st.addWater(date, fluidOuncesToLiters(8))}>
+          <Plus size={14} /> 8 fl oz
         </button>
-        <button className={v.toggle} onClick={() => st.addWater(date, 0.5)}>
-          <Plus size={14} /> 500 ml
+        <button className={v.toggle} onClick={() => st.addWater(date, fluidOuncesToLiters(16))}>
+          <Plus size={14} /> 16 fl oz
         </button>
       </div>
     </div>

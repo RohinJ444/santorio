@@ -76,11 +76,14 @@ describe('prescriptions and immutable workout history', () => {
     const cardio = newSessionExercise(definition({ tracking: 'cardio' }), 'lb');
     cardio.cardio = { minutes: 25, distance: 2, speed: 4.8, incline: 4, distanceUnit: 'mi' };
     session.exercises = [loggedExercise({ equipment: 'Cable station 2', notes: 'Elbow sore' }), cardio];
+    session.exercises[0].healthWorkoutIds = [newId()];
     session.notes = 'Actual workout note'; session.healthWorkoutIds = [newId()]; session.status = 'complete';
     const before = structuredClone(session);
     const copy = repeatSession(session, '2026-10-16');
     expect(copy.id).not.toBe(session.id);
     expect(copy.date).toBe('2026-10-16'); expect(copy.status).toBe('active'); expect(copy.healthWorkoutIds).toEqual([]); expect(copy.notes).toBe('');
+    expect(copy.exercises[0].healthWorkoutIds).toEqual([]);
+    expect(routineFromSession(session, 'Routine').exercises[0].healthWorkoutIds).toEqual([]);
     expect(copy.exercises[0].equipment).toBe('Cable station 2'); expect(copy.exercises[0].notes).toBe('');
     expect(copy.exercises[0].sets[0].id).not.toBe(session.exercises[0].sets[0].id);
     expect(copy.exercises[0].sets.every(set => set.segments.every(segment => segment.weight === null && segment.reps === null))).toBe(true);

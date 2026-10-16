@@ -11,8 +11,9 @@ export async function POST(request:Request){return route(async()=>{
  if(error)throw new HttpError(400,'Unable to change the password. Request a new reset link and try a different password.');
  const admin=adminClient();
  const revoked=await admin.from('oauth_grants').update({revoked_at:new Date().toISOString()}).eq('owner_id',user.id).is('revoked_at',null);
+ const healthRevoked=await admin.rpc('set_health_connection',{p_owner_id:user.id,p_token_hash:null});
  const cleaned=await admin.from('password_recovery_proofs').delete().eq('owner_id',user.id);
  const signedOut=await db.auth.signOut({scope:'global'});
- if(revoked.error||cleaned.error||signedOut.error)throw new HttpError(503,'Your password changed, but some sessions could not be revoked. Sign out and review your connected apps.');
+ if(revoked.error||healthRevoked.error||cleaned.error||signedOut.error)throw new HttpError(503,'Your password changed, but some sessions could not be revoked. Sign out and review your connected apps.');
  return json({ok:true});
 });}

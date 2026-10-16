@@ -32,6 +32,7 @@ export type SessionExercise = Entity & {
   primaryMuscle: string; secondaryMuscles: string[];
   equipment: string; locationId?: string | null; perHand: boolean; unilateral: boolean;
   weightUnit: 'lb' | 'kg'; targets: Targets; sets: TrainingSet[]; notes: string;
+  healthWorkoutIds?: string[];
   cardio?: { minutes: number | null; distance: number | null; distanceUnit: 'mi' | 'km'; speed: number | null; incline: number | null };
 };
 export type WorkoutSession = Entity & {
@@ -68,12 +69,15 @@ export type DayMetrics = Entity & {
   date: string; steps: number | null; waterL: number;
   activeEnergy: number | null; restingEnergy: number | null; exerciseMinutes: number | null;
   source: Source; importedAt?: string; completeDay?: boolean;
+  healthSources?: Partial<Record<'steps' | 'activeEnergy' | 'restingEnergy' | 'exerciseMinutes', string>>;
 };
 export type Measurement = Entity & { date: string; kind: 'weight_kg' | 'height_cm'; value: number; source: Source; recordedAt: string };
 export type HealthWorkout = Entity & {
   externalId: string; date: string; name: string; start: string; end: string;
   durationMinutes: number; activeEnergy: number | null; totalEnergy: number | null;
-  heartRate: { time: string; bpm: number }[]; importedAt: string;
+  heartRate: { time: string; bpm: number; min?: number; max?: number }[]; importedAt: string;
+  heartRateSummary?: { min?: number; avg?: number; max?: number };
+  sourceName?: string; sourceIdentifier?: string; isIndoor?: boolean; distanceKm?: number;
 };
 export type Collections = {
   profiles: ProfileRecord; locations: Location; exercises: ExerciseDefinition; routines: Routine;

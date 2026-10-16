@@ -46,8 +46,10 @@ async function saveWorkout(access:McpAccess,workout:WorkoutSession,expectedVersi
  if(workout.routineId!==prior?.routineId)throw new HttpError(400,'Preserve the existing routine link. This tool cannot assign routines.');
  for(const exercise of workout.exercises){
   const previous=prior?.exercises.find(item=>item.id===exercise.id);
+  if(JSON.stringify([...(exercise.healthWorkoutIds??[])].sort())!==JSON.stringify([...(previous?.healthWorkoutIds??[])].sort()))throw new HttpError(400,'Preserve existing Health workout links. This tool cannot add or change Health associations.');
   if(exercise.routineExerciseId!==previous?.routineExerciseId)throw new HttpError(400,'Preserve existing routine exercise links. New workout exercises must omit routineExerciseId.');
  }
+ if(prior?.exercises.some(previous=>previous.healthWorkoutIds?.length&&!workout.exercises.some(exercise=>exercise.id===previous.id)))throw new HttpError(400,'Unlink this exercise from Apple Health in the app before removing it through MCP.');
  const previousExercises=new Set(prior?.exercises.map(exercise=>exercise.exerciseId)??[]);
  const addedExercises=new Set(workout.exercises.map(exercise=>exercise.exerciseId).filter(id=>!previousExercises.has(id)));
  const previousLocations=locationIds(prior);

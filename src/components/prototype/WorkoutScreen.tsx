@@ -6,6 +6,7 @@ import { newId, type ExerciseDefinition, type Location, type Routine, type Sessi
 import { applyTargets, completedWorkingSets, displayNumber, effectiveLocationId, exerciseHasResults, newSession, newSessionExercise, normalizeSetup, repeatSession, resultSummary, routineFromSession, workoutInsights } from '@/lib/domain/workouts';
 import { DayNav, Modal, NumberField, SaveStatus, TextField } from './controls';
 import WorkoutExercise from './WorkoutExercise';
+import HealthWorkoutLinks from './HealthWorkoutLinks';
 import { ExerciseLibrary, LocationPicker } from './WorkoutLibrary';
 import p from './prototype.module.css';
 import s from './workout.module.css';
@@ -85,7 +86,7 @@ export default function WorkoutScreen() {
 
   return <main className={`${p.page} ${s.workoutPage}`}>
     <div className={s.pageHeading}><div><p className={s.eyebrow}>Q_out</p><h1>Training</h1></div><button type="button" className={s.smallButton} onClick={() => setLibrary({ kind: 'manage' })}>Exercise library</button></div>
-    <DayNav date={date} onChange={chooseDate} markedDates={[...new Set(sessions.map(session => session.date))]} label="Training date" />
+    <DayNav date={date} onChange={chooseDate} markedDates={[...new Set([...sessions.map(session => session.date), ...Object.values(records.healthWorkouts).map(workout => workout.date)])]} label="Training date" />
     <SaveStatus />
     <nav className={s.tabs} aria-label="Training views">{(['workouts', 'insights', 'routines'] as const).map(value => <button key={value} type="button" aria-pressed={tab === value} className={tab === value ? s.activeTab : ''} onClick={() => setTab(value)}>{value === 'workouts' ? 'Workouts' : value === 'insights' ? 'Insights' : 'Routines'}</button>)}</nav>
     {notice ? <p className={s.notice} role="status">{notice}</p> : null}
@@ -93,6 +94,7 @@ export default function WorkoutScreen() {
     {tab === 'workouts' ? <>
       <div className={s.sectionHeading}><h2>{date === data.today ? 'Today’s workouts' : 'Workouts'} <span>{daySessions.length}</span></h2><button type="button" className={s.primaryButton} onClick={() => setStarting(true)}>+ Workout</button></div>
       {daySessions.length ? <nav className={s.sessionTabs} aria-label="Workouts on selected date">{daySessions.map(session => <button type="button" className={`${s.sessionTab} ${session.id === selected?.id ? s.sessionSelected : ''}`} key={session.id} aria-pressed={session.id === selected?.id} onClick={() => setSelectedId(session.id)}><strong>{session.title || 'Untitled workout'}</strong><span>{records.locations[session.locationId ?? '']?.name || 'No location'} · {session.status === 'complete' ? 'Finished' : 'In progress'}</span></button>)}</nav> : <div className={s.emptyCard}><h3>No workout on this day</h3><p>Start fresh, use a routine, or repeat a recent workout.</p><button type="button" className={s.primaryButton} onClick={() => setStarting(true)}>Start workout</button></div>}
+      <HealthWorkoutLinks key={date} date={date} />
       {selected ? <>
         <section className={s.sessionCard} aria-label="Workout details">
           <TextField label="Workout name" value={selected.title} onChange={title => upsert('workouts', { ...selected, title })} placeholder="Back & biceps, evening walk…" />

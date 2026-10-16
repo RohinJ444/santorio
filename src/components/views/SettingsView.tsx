@@ -6,6 +6,7 @@ import { useState } from "react";
 import { fmtShort } from "@/lib/dates";
 import { ACTIVITY, ageOn, fmtInt, fmtSigned } from "@/lib/energy";
 import { useStore } from "@/lib/store";
+import { fluidOuncesToLiters, waterOunces } from "@/lib/domain/water";
 import type { Activity, Sex, WeighIn } from "@/lib/types";
 import { Figure } from "../ui/icons";
 import { viewMotion } from "./DayHeader";
@@ -177,7 +178,7 @@ export default function SettingsView() {
       <Group title="Daily goals">
         <NumRow label="Protein" unit="g" value={g.proteinG} onChange={(proteinG) => st.updateGoals({ proteinG })} />
         <NumRow label="Steps" value={g.steps} onChange={(steps) => st.updateGoals({ steps })} />
-        <NumRow label="Water" unit="L" value={g.waterL} onChange={(waterL) => st.updateGoals({ waterL })} />
+        <NumRow label="Water" unit="fl oz" value={waterOunces(g.waterL)} onChange={(ounces) => st.updateGoals({ waterL: fluidOuncesToLiters(ounces) })} />
       </Group>
 
       <Group title="Training">

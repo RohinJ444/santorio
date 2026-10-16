@@ -31,8 +31,11 @@ export function dailyIntake(entries:DiaryEntry[],date:string):{energy:number|nul
   const energy=totals.find(t=>t.key==='energy'),protein=totals.find(t=>t.key==='protein');
   return {energy:energy?.amount??null,protein:protein?.amount??null,count:day.length,partial:!!energy?.partial,estimated:day.some(e=>e.estimated)||!!energy?.estimated};
 }
-export function energyOut(metrics:DayMetrics|undefined,tdee:number|null):{value:number|null;label:string;source:'apple_health'|'manual'|'profile'|'unknown';partialDay:boolean;updatedAt?:string} {
-  if(metrics?.source==='apple_health'&&metrics.activeEnergy!==null&&metrics.restingEnergy!==null) return {value:metrics.activeEnergy+metrics.restingEnergy,label:metrics.completeDay?'Health day':'Health so far',source:'apple_health',partialDay:!metrics.completeDay,updatedAt:metrics.importedAt};
+export function energyOut(metrics:DayMetrics|undefined,tdee:number|null,bmr:number|null=null):{value:number|null;label:string;source:'apple_health'|'manual'|'mixed'|'profile'|'unknown';partialDay:boolean;updatedAt?:string} {
+  const healthActive=metrics?.healthSources ? Object.hasOwn(metrics.healthSources,'activeEnergy') : metrics?.source==='apple_health';
+  // Daily active energy already includes recorded workouts. Use the full-day
+  // resting estimate instead of potentially incomplete exported resting energy.
+  if(healthActive&&metrics?.activeEnergy!==null&&metrics?.activeEnergy!==undefined) return {value:bmr===null?null:bmr+metrics.activeEnergy,label:'TDEE est.',source:bmr===null?'unknown':'mixed',partialDay:true,updatedAt:metrics.importedAt};
   if(metrics?.source==='manual'&&metrics.activeEnergy!==null&&metrics.restingEnergy!==null) return {value:metrics.activeEnergy+metrics.restingEnergy,label:metrics.completeDay?'Entered day':'Entered so far',source:'manual',partialDay:!metrics.completeDay};
   return {value:tdee,label:'TDEE est.',source:tdee===null?'unknown':'profile',partialDay:false};
 }
